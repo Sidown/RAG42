@@ -3,9 +3,36 @@ import glob
 import ast
 
 
-def text_chunker(text: str) -> list[str]:
+def text_chunker(text: str, file_path: str) -> list[dict[str | int]]:
     chunks = []
-    chunks = textwrap.wrap(text, 2000)
+    lines = text.split('#')
+    last_pos = 0
+    for line in lines:
+        if line == '':
+            continue
+        if len(line) > 2000:
+            line_sliced = textwrap.wrap(line, 2000)
+            for s in line_sliced:
+                first_char = text.find(s, last_pos)
+                last_char = first_char + len(s)
+                chunks.append({
+                    'file': file_path,
+                    'text': s,
+                    'first_char_index': first_char,
+                    'last_char_index': last_char
+                })
+                last_pos = last_char
+        else:
+            first_char = text.find(line, last_pos)
+            last_char = first_char + len(line)
+            chunks.append({
+                'file': file_path,
+                'text': line,
+                'first_char_index': first_char,
+                'last_char_index': last_char
+            })
+            last_pos = last_char
+
     return chunks
 
 
@@ -17,20 +44,26 @@ def text_chunker(text: str) -> list[str]:
 #             chunks.remove(chunk)
 #     return chunks
 
-def python_code_chunker(text: str) -> dict[int, str]:
-    tree = ast.parse(text)
-    d = {}
-    lines = text.split('\n')
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.ClassDef)):     
-            first_char = sum(len(lines[i]) + 1
-                            for i in range(node.lineno - 1))
-            last_char = sum(len(lines[i]) + 1
-                            for i in range(node.end_lineno - 1))
-            print(f"f: {first_char}, l: {last_char}")
-            d.update({first_char:
-                      '\n'.join(lines[node.lineno - 1:node.end_lineno])})
-    return d
+def python_code_chunker(text: str, file_path: str) -> list[dict[str, str | int]]:
+    chunks = []
+    try:
+        tree = ast.parse(text)
+        lines = text.split('\n')
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.ClassDef)):     
+                first_char = sum(len(lines[i]) + 1
+                                for i in range(node.lineno - 1))
+                last_char = sum(len(lines[i]) + 1 
+                                for i in range(node.end_lineno - 1)) + len(lines[node.end_lineno - 1])
+                chunks.append({
+                    'file': file_path,
+                    'text': '\n'.join(lines[node.lineno - 1:node.end_lineno]),
+                    'first_char_index': first_char,
+                    'last_char_index': last_char
+                })
+        return chunks
+    except Exception:
+        return []
             
 
 
@@ -52,35 +85,13 @@ def read_file(file: str) -> str:
     return text
 
 
-def get_all_chunk() -> list[str]:
+def get_all_chunk() -> list[dict[str, str | int]]:
     chunks = []
     files = files_name_loader()
     for file in files['py']:
-        chunks.extend(python_code_chunker(read_file(file)))
+        chunks.extend(python_code_chunker(read_file(file), file))
     for file in files['txt']:
-        chunks.extend(text_chunker(read_file(file)))
+        chunks.extend(text_chunker(read_file(file), file))
     for file in files['md']:
-        chunks.extend(text_chunker(read_file(file)))
+        chunks.extend(text_chunker(read_file(file), file))
     return chunks
-
-chunks = get_all_chunk()
-
-
-# import bm25s
-# corpus = [
-#     "a cat is a feline and likes to purr",
-#     "a dog is the human's best friend and loves to play",
-#     "a bird is a beautiful animal that can fly",
-#     "a bird eat grains",
-#     "a bird can be of many colors",
-#     "the cat eat the bird"
-# ]
-# print('ici')
-# corpus_tokens = bm25s.tokenize(corpus)
-# retriever = bm25s.BM25(corpus=corpus)
-# retriever.index(corpus_tokens)
-
-# query = "what is a bird?"
-# quer_tokens = bm25s.tokenize(query)
-# docs, scores = retriever.retrieve(quer_tokens, k=2)
-# print(f"Best result (score: {scores[0, 0]:.2f}): {docs[0, 0]}")
