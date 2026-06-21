@@ -19,8 +19,8 @@ class RAG:
         chunks_found = search_match(query, retriever, chunks, k)
         for i, chunk in enumerate(chunks_found):
             print(f"Result {i}:")
-            print(f"File path: {chunk["file"]}")
-            print(f"Content:\n{chunk["text"]}")
+            print(f"File path: {chunk['file']}")
+            print(f"Content:\n{chunk['text']}")
 
     def search_dataset(self):
         pass
