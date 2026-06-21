@@ -1,4 +1,5 @@
 import bm25s
+# from student.files_loader import get_all_chunk
 
 
 def corpus_constructor(chunks: list[dict[str, str | int]]) -> list[str]:
@@ -14,3 +15,5 @@ def index_chunks(chunks: list[dict[str, str | int]]) -> bm25s.BM25:
     retriever = bm25s.BM25()
     retriever.index(corpus_tokens)
     return retriever
+
+# print(index_chunks(get_all_chunk()))
