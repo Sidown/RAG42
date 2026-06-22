@@ -38,7 +38,7 @@ def text_chunker(text: str, file_path: str,
     return chunks
 
 
-def python_code_chunker(text: str, file_path: str) -> list[dict[str, str | int]]:
+def python_code_chunker(text: str, file_path: str, max_chunk_size: int) -> list[dict[str, str | int]]:
     chunks = []
     try:
         tree = ast.parse(text)
@@ -83,7 +83,7 @@ def get_all_chunk(max_chunk_size) -> list[dict[str, str | int]]:
     chunks = []
     files = files_name_loader()
     for file in tqdm(files['py'], desc="Indexing .py files"):
-        chunks.extend(python_code_chunker(read_file(file), file))
+        chunks.extend(python_code_chunker(read_file(file), file, max_chunk_size))
     for file in tqdm(files['md'], desc="Indexing .md files"):
         chunks.extend(text_chunker(read_file(file), file, max_chunk_size))
     return chunks

@@ -13,7 +13,7 @@ def save_index(path: str, retriever, chunks) -> bool:
         chunks_path = os.path.join(os.path.dirname(path),
                                    "chunks.json")
         with open(chunks_path, 'w') as f:
-            json.dump(chunks, f)
+            json.dump(chunks, f, indent=2)
         return True
     except Exception as e:
         print(e)
@@ -36,4 +36,4 @@ def load_index(path: str):
     return bm25_index, json_data
 
 
-print(load_index("data/processed/bm25_index"))
+# print(load_index("data/processed/bm25_index"))
