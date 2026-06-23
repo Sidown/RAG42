@@ -5,6 +5,7 @@ from student.search_files import search_match
 import os
 import json
 from student.data_models import MinimalSource, StudentSearchResults, RagDataset, MinimalSearchResults
+from student.qwen import QwenChatbot
 
 
 class RAG:
@@ -77,10 +78,12 @@ class RAG:
         llm_query = [
             "Your role: you are an assistant responsible for helping the user answer questions. To help you,"
             " you will be provided with information. Use these informations to formulate a comprehensible answer."
-            f" Query: {query}"
-            f" information: {chunks_found}"
+            f" QUERY: {query}"
+            f" INFORMATION: {chunks_found}"
         ]
-        print(llm_query)
+        chatbot = QwenChatbot()
+        response = chatbot.generate_response(llm_query)
+        print(response)
 
     def answer_dataset(self, student_search_results_path: str,
                        save_directory: str) -> None:
