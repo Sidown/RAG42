@@ -26,7 +26,7 @@ class RAG:
             print(f"Content:\n{chunk['text']}")
 
     def search_dataset(self, dataset_path: str, k: int, save_directory: str):
-        os.makedirs(os.path.dirname(save_directory), exist_ok=True)
+        os.makedirs(save_directory, exist_ok=True)
         retriever, chunks = load_index(self.path)
         mini_search_list = []
         with open(dataset_path, 'r') as f:
@@ -44,7 +44,11 @@ class RAG:
             mini_search_list.append(mini_search)
         stud_search_res = StudentSearchResults(search_results=mini_search_list, k=k)
         a = stud_search_res.model_dump(mode='json')
-        print(a)
+        filename = os.path.basename(dataset_path)
+        output_path = os.path.join(save_directory, filename)
+        with open(output_path, 'w') as f:
+            json.dump(a, f, indent=2)
+        print(f"Saved to {output_path}")
 
     def answer(self):
         pass
