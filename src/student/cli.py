@@ -8,31 +8,45 @@ from student.data_models import MinimalSource, StudentSearchResults, RagDataset,
 
 
 class RAG:
-    path = "data/processed/bm25_index"
+    index_path = "data/processed/bm25_index"
 
-    def index(self, max_chunk_size: int = 2000):
+    def index(self, max_chunk_size: int = 2000) -> None:
+        """
+        Index files
+        max_chunk_size: number of char in a chunk
+        """
         print("Indexing in progress...")
         chunks = get_all_chunk(max_chunk_size)
         retriever = index_chunks(chunks)
-        save_index(self.path, retriever, chunks)
+        save_index(self.index_path, retriever, chunks)
         print("Indexing done !")
 
-    def search(self, query: str, k: int = 5):
-        retriever, chunks = load_index(self.path)
+    def search(self, query: str, k: int = 5) -> None:
+        """
+        Search chunk match for a query
+        query: user query
+        k: number max of matching chunks to retrieve
+        """
+        retriever, chunks = load_index(self.index_path)
         chunks_found = search_match(query, retriever, chunks, k)
         for i, chunk in enumerate(chunks_found):
             print(f"Result {i}:")
             print(f"File path: {chunk['file']}")
             print(f"Content:\n{chunk['text']}")
 
-    def search_dataset(self, dataset_path: str, k: int, save_directory: str):
+    def search_dataset(self, dataset_path: str, k: int, save_directory: str) -> None:
+        """
+        Search matching chunks for a dataset and save it in a file
+        dataset_path: path to the dataset containing queries
+        k: number of chunks to retrieve for each query
+        save_directory: path where to save the result
+        """
         os.makedirs(save_directory, exist_ok=True)
-        retriever, chunks = load_index(self.path)
+        retriever, chunks = load_index(self.index_path)
         mini_search_list = []
         with open(dataset_path, 'r') as f:
             data = json.load(f)
         for d in data["rag_questions"]:
-            # print(d["question"])
             mini_source = []
             m = search_match(d["question"], retriever, chunks, k)
             for ans in m:
@@ -50,11 +64,39 @@ class RAG:
             json.dump(a, f, indent=2)
         print(f"Saved to {output_path}")
 
-    def answer(self):
-        pass
+    def answer(self, query: str, k: int = 5) -> None:
+        """
+        Use QWEN and chunks to answer a single query of the user
+        query: user query
+        k: number of chunks to retrieve for the query
+        """
+        # lecture index -> cherche match -> construction query pour llm -> envoie llm
+        doc_path = "data/processed/chunks.json"
+        retriever, chunks = load_index(self.index_path)
+        chunks_found = search_match(query, retriever, chunks, k)
+        llm_query = [
+            "Your role: you are an assistant responsible for helping the user answer questions. To help you,"
+            " you will be provided with information. Use these informations to formulate a comprehensible answer."
+            f" Query: {query}"
+            f" information: {chunks_found}"
+        ]
+        print(llm_query)
 
-    def answer_dataset(self):
-        pass
+    def answer_dataset(self, student_search_results_path: str,
+                       save_directory: str) -> None:
+        """
+        Use QWEN and chunks to answer questions from a dataset
+        student_search_results_path: Path to the search results
+        save_directory: path where to save the answers
+        """
+        with open(student_search_results_path) as f:
+            data = f.read()
+        print(data)
+        
+        llm_query = [
+            "Your role: you are an assistant responsible for helping the user answer questions. To help you,"
+            " you will be provided with information. Use these informations to formulate a comprehensible answer."
+        ]
 
     def evaluate(self):
         pass
