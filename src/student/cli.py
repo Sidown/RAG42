@@ -11,6 +11,15 @@ from student.qwen import QwenChatbot
 class RAG:
     index_path = "data/processed/bm25_index"
 
+    def __init__(self):
+        self._chatbot = None
+
+    def _get_chatbot(self):
+        if self._chatbot is None:
+            print("Loading LLM")
+            self._chatbot = QwenChatbot()
+        return self._chatbot
+
     def index(self, max_chunk_size: int = 2000) -> None:
         """
         Index files
@@ -72,16 +81,19 @@ class RAG:
         k: number of chunks to retrieve for the query
         """
         # lecture index -> cherche match -> construction query pour llm -> envoie llm
+        chatbot = self._get_chatbot()
         doc_path = "data/processed/chunks.json"
         retriever, chunks = load_index(self.index_path)
         chunks_found = search_match(query, retriever, chunks, k)
-        llm_query = [
-            "Your role: you are an assistant responsible for helping the user answer questions. To help you,"
-            " you will be provided with information. Use these informations to formulate a comprehensible answer."
-            f" QUERY: {query}"
-            f" INFORMATION: {chunks_found}"
-        ]
-        chatbot = QwenChatbot()
+        for chunk in chunks_found:
+            print(chunk)
+        llm_query = ("Your role: you are an assistant responsible for helping"
+                     " the user answer questions. To help you, you will be"
+                     " provided with information. Use these informations to"
+                     " formulate a comprehensible answer. "
+                     f"QUERY: {query} INFORMATION: {chunks_found}")
+        
+        
         response = chatbot.generate_response(llm_query)
         print(response)
 
