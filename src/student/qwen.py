@@ -7,17 +7,17 @@ class QwenChatbot:
         self.history = []
 
     def generate_response(self, user_input):
-        print(user_input)
         messages = self.history + [{"role": "user", "content": user_input}]
 
         text = self.tokenizer.apply_chat_template(
             messages,
             tokenize=False,
-            add_generation_prompt=True
+            add_generation_prompt=True,
+            enable_thinking=False
         )
 
         inputs = self.tokenizer(text, return_tensors="pt")
-        response_ids = self.model.generate(**inputs, max_new_tokens=512)[0][len(inputs.input_ids[0]):].tolist()
+        response_ids = self.model.generate(**inputs, max_new_tokens=100)[0][len(inputs.input_ids[0]):].tolist()
         response = self.tokenizer.decode(response_ids, skip_special_tokens=True)
 
         # Update history

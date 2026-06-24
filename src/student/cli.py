@@ -4,7 +4,7 @@ from student.index_manager import save_index, load_index
 from student.search_files import search_match
 import os
 import json
-from student.data_models import MinimalSource, StudentSearchResults, RagDataset, MinimalSearchResults
+from student.data_models import MinimalAnswer, MinimalSource, StudentSearchResults, RagDataset, MinimalSearchResults, StudentSearchResultsAndAnswer
 from student.qwen import QwenChatbot
 
 
@@ -82,17 +82,18 @@ class RAG:
         """
         # lecture index -> cherche match -> construction query pour llm -> envoie llm
         chatbot = self._get_chatbot()
+        documentation = ""
         doc_path = "data/processed/chunks.json"
         retriever, chunks = load_index(self.index_path)
         chunks_found = search_match(query, retriever, chunks, k)
         for chunk in chunks_found:
-            print(chunk)
+            documentation += chunk['text']
+        print(documentation)
         llm_query = ("Your role: you are an assistant responsible for helping"
                      " the user answer questions. To help you, you will be"
                      " provided with information. Use these informations to"
                      " formulate a comprehensible answer. "
-                     f"QUERY: {query} INFORMATION: {chunks_found}")
-        
+                     f"QUERY: {query} INFORMATION: {documentation}")
         
         response = chatbot.generate_response(llm_query)
         print(response)
@@ -104,14 +105,50 @@ class RAG:
         student_search_results_path: Path to the search results
         save_directory: path where to save the answers
         """
-        with open(student_search_results_path) as f:
-            data = f.read()
-        print(data)
-        
-        llm_query = [
-            "Your role: you are an assistant responsible for helping the user answer questions. To help you,"
-            " you will be provided with information. Use these informations to formulate a comprehensible answer."
-        ]
+        os.makedirs(save_directory, exist_ok=True)
+        chatbot = self._get_chatbot()
+        search_results_and_answer = StudentSearchResultsAndAnswer()
+        search_results_and_answer.search_results = []
+
+        with open(student_search_results_path, 'r') as f:
+            data = json.load(f)
+
+        for d in data["search_results"]:
+            mini_answer = MinimalAnswer()
+            mini_answer.question_id = d["question_id"]
+            mini_answer.question = d["question"]
+            mini_answer.retrieved_sources = []
+            informations = ""
+
+            for source in d["retrieved_sources"]:
+                with open(source["file_path"]) as f:
+                    info_read = f.read()
+                informations += info_read[
+                    source["first_character_index"]
+                    :source["last_character_index"]]
+                
+                mini_source = MinimalSource()
+                mini_source.file_path = source["file_path"]
+                mini_source.first_character_index = source["first_character_index"]
+                mini_source.last_character_index = source["last_character_index"]
+                mini_answer.retrieved_sources.append(mini_source)
+
+            llm_query = ("Your role: you are an assistant responsible for helping"
+                        " the user answer questions. To help you,"
+                        " you will be provided with information. Use these"
+                        " informations to formulate a comprehensible answer. "
+                        f"Query: {d["question"]}  Information: {informations}")
+            
+            response = chatbot.generate_response(llm_query)
+            mini_answer.answer = response
+            search_results_and_answer.search_results.append(mini_answer)
+
+        dumped = search_results_and_answer.model_dump(mode='json')
+        filename = os.path.basename(student_search_results_path)
+        output_path = os.path.join(save_directory, filename)
+        with open(output_path, 'w') as f:
+            json.dump(dumped, f, indent=2)
+        print(f"Saved to {output_path}")
 
     def evaluate(self):
         pass
