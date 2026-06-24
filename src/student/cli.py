@@ -6,6 +6,7 @@ import os
 import json
 from student.data_models import MinimalAnswer, MinimalSource, StudentSearchResults, RagDataset, MinimalSearchResults, StudentSearchResultsAndAnswer
 from student.qwen import QwenChatbot
+from tqdm import tqdm
 
 
 class RAG:
@@ -19,6 +20,21 @@ class RAG:
             print("Loading LLM")
             self._chatbot = QwenChatbot()
         return self._chatbot
+    
+    def _has_overlap(retrieved: dict, truth: dict) -> bool:
+        if retrieved["file_path"] != truth["file_path"]:
+            return False
+        overlap_start = max(retrieved["first_character_index"],
+                            truth["first_character_index"])
+        overlap_end = min(retrieved["last_character_index"],
+                          truth["last_character_index"])
+        overlap_size = max(0, overlap_end - overlap_start)
+        overlap_percent = overlap_size / (truth["last_character_index"]
+                                          - truth["first_character_index"])
+        
+        if overlap_percent >= 0.05:
+            return True
+        return False
 
     def index(self, max_chunk_size: int = 2000) -> None:
         """
@@ -83,7 +99,6 @@ class RAG:
         # lecture index -> cherche match -> construction query pour llm -> envoie llm
         chatbot = self._get_chatbot()
         documentation = ""
-        doc_path = "data/processed/chunks.json"
         retriever, chunks = load_index(self.index_path)
         chunks_found = search_match(query, retriever, chunks, k)
         for chunk in chunks_found:
@@ -107,17 +122,21 @@ class RAG:
         """
         os.makedirs(save_directory, exist_ok=True)
         chatbot = self._get_chatbot()
-        search_results_and_answer = StudentSearchResultsAndAnswer()
-        search_results_and_answer.search_results = []
 
         with open(student_search_results_path, 'r') as f:
             data = json.load(f)
+        search_results_and_answer = StudentSearchResultsAndAnswer(
+            search_results = [],
+            k = data["k"]
+        )
 
-        for d in data["search_results"]:
-            mini_answer = MinimalAnswer()
-            mini_answer.question_id = d["question_id"]
-            mini_answer.question = d["question"]
-            mini_answer.retrieved_sources = []
+        for d in tqdm(data["search_results"], desc="Loading answers for queries..."):
+            mini_answer = MinimalAnswer(
+                question_id = d["question_id"],
+                question = d["question"],
+                retrieved_sources = [],
+                answer = ""
+            )
             informations = ""
 
             for source in d["retrieved_sources"]:
@@ -127,17 +146,18 @@ class RAG:
                     source["first_character_index"]
                     :source["last_character_index"]]
                 
-                mini_source = MinimalSource()
-                mini_source.file_path = source["file_path"]
-                mini_source.first_character_index = source["first_character_index"]
-                mini_source.last_character_index = source["last_character_index"]
+                mini_source = MinimalSource(
+                    file_path = source["file_path"],
+                    first_character_index = source["first_character_index"],
+                    last_character_index = source["last_character_index"]
+                )
                 mini_answer.retrieved_sources.append(mini_source)
 
             llm_query = ("Your role: you are an assistant responsible for helping"
                         " the user answer questions. To help you,"
                         " you will be provided with information. Use these"
                         " informations to formulate a comprehensible answer. "
-                        f"Query: {d["question"]}  Information: {informations}")
+                        f"Query: {d['question']}  Information: {informations}")
             
             response = chatbot.generate_response(llm_query)
             mini_answer.answer = response
@@ -150,5 +170,5 @@ class RAG:
             json.dump(dumped, f, indent=2)
         print(f"Saved to {output_path}")
 
-    def evaluate(self):
+    def evaluate(self, student_answer_path: str, dataset_path: str) -> None:
         pass
