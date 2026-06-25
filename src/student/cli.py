@@ -21,7 +21,7 @@ class RAG:
             self._chatbot = QwenChatbot()
         return self._chatbot
     
-    def _has_overlap(retrieved: dict, truth: dict) -> bool:
+    def _has_overlap(self, retrieved: dict, truth: dict) -> bool:
         if retrieved["file_path"] != truth["file_path"]:
             return False
         overlap_start = max(retrieved["first_character_index"],
@@ -171,4 +171,18 @@ class RAG:
         print(f"Saved to {output_path}")
 
     def evaluate(self, student_answer_path: str, dataset_path: str) -> None:
-        pass
+        count = 0
+        with open(student_answer_path) as f:
+            stud_answers = json.load(f)
+        with open(dataset_path) as f:
+            true_answers = json.load(f)
+        for truth in true_answers["rag_questions"]:
+            for file in truth["sources"]:
+                for retrieved in stud_answers["search_results"]:
+                    for source in retrieved["retrieved_sources"]:
+                        if self._has_overlap(source, file):
+                            count += 1
+                            break
+        
+        print(count)
+        

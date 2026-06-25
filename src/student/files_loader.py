@@ -62,7 +62,7 @@ def python_code_chunker(text: str, file_path: str, max_chunk_size: int) -> list[
 
 
 def files_name_loader() -> dict[str, list[str]]:
-    repo = './vllm-0.10.1/'
+    repo = 'data/raw/vllm-0.10.1/'
     files_dict = {}
     py_files = glob.glob(repo + '/**/*.py', recursive=True)
     files_dict.update({'py': py_files})

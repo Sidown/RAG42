@@ -17,12 +17,12 @@ class QwenChatbot:
         )
 
         inputs = self.tokenizer(text, return_tensors="pt")
-        response_ids = self.model.generate(**inputs, max_new_tokens=100)[0][len(inputs.input_ids[0]):].tolist()
+        response_ids = self.model.generate(**inputs, max_new_tokens=50)[0][len(inputs.input_ids[0]):].tolist()
         response = self.tokenizer.decode(response_ids, skip_special_tokens=True)
 
         # Update history
-        self.history.append({"role": "user", "content": user_input})
-        self.history.append({"role": "assistant", "content": response})
+        # self.history.append({"role": "user", "content": user_input})
+        # self.history.append({"role": "assistant", "content": response})
 
         return response
 
