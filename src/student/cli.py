@@ -177,12 +177,18 @@ class RAG:
         with open(dataset_path) as f:
             true_answers = json.load(f)
         for truth in true_answers["rag_questions"]:
-            for file in truth["sources"]:
-                for retrieved in stud_answers["search_results"]:
-                    for source in retrieved["retrieved_sources"]:
-                        if self._has_overlap(source, file):
-                            count += 1
-                            break
+            stud_result = next(
+                (r for r in stud_answers["search_results"]
+                if r["question_id"] == truth["question_id"]),
+                None
+            )
+            if stud_result is None:
+                continue
+            for correct_source in truth["sources"]:
+                for retrieved_source in stud_result["retrieved_sources"]:
+                    if self._has_overlap(retrieved_source, correct_source):
+                        count += 1
+                        break
         
         print(count)
         
