@@ -4,7 +4,14 @@ import os
 import bm25s
 
 
-def save_index(path: str, retriever, chunks) -> bool:
+def save_index(path: str, retriever: bm25s.BM25,
+               chunks: list[dict[str, str | int]]) -> bool:
+    """
+    Save the BM25 index as a json file
+    path: path of the json file
+    retriever: BM25 index
+    chunks: dict containing all the chunks
+    """
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         retriever.save(path)
@@ -26,6 +33,10 @@ def save_index(path: str, retriever, chunks) -> bool:
 
 
 def load_index(path: str):
+    """
+    Load bm25 index and the json file then return them
+    path: path of the file
+    """
     chunks_path = os.path.join(os.path.dirname(path),
                                "chunks.json")
     with open(chunks_path, 'r') as f:
@@ -35,6 +46,9 @@ def load_index(path: str):
 
 
 def corpus_constructor(chunks: list[dict[str, str | int]]) -> list[str]:
+    """
+    Construct corpus and return it
+    """
     corpus = []
     for chunk in chunks:
         corpus.append(chunk['text'])
@@ -42,6 +56,9 @@ def corpus_constructor(chunks: list[dict[str, str | int]]) -> list[str]:
 
 
 def index_chunks(chunks: list[dict[str, str | int]]) -> bm25s.BM25:
+    """
+    Index the chunks using BM25
+    """
     corpus = corpus_constructor(chunks)
     corpus_tokens = bm25s.tokenize(corpus)
     retriever = bm25s.BM25()

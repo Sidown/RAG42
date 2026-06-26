@@ -10,18 +10,32 @@ from tqdm import tqdm
 
 
 class RAG:
+    """
+    CLI class with index, search, search_dataset, answer, answer_dataset
+    and evaluate as command.
+    """
     index_path = "data/processed/bm25_index"
 
     def __init__(self):
+        """
+        Init for the chatbot
+        """
         self._chatbot = None
 
     def _get_chatbot(self):
+        """
+        Change the chatbot from none to QwenChatBot and return it.
+        """
         if self._chatbot is None:
             print("Loading LLM")
             self._chatbot = QwenChatbot()
         return self._chatbot
     
     def _has_overlap(self, retrieved: dict, truth: dict) -> bool:
+        """
+        Check if the text of the retrieved information and the true information
+        overlap
+        """
         if retrieved["file_path"] != truth["file_path"]:
             return False
         overlap_start = max(retrieved["first_character_index"],
@@ -171,6 +185,7 @@ class RAG:
         print(f"Saved to {output_path}")
 
     def evaluate(self, student_answer_path: str, dataset_path: str) -> None:
+        
         count = 0
         with open(student_answer_path) as f:
             stud_answers = json.load(f)

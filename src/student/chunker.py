@@ -6,6 +6,15 @@ from tqdm import tqdm
 
 def text_chunker(text: str, file_path: str,
                  max_chunk_size: int) -> list[dict[str | int]]:
+    """
+    Chunk a text with a split on '#' and a wrap if one of the chunks
+    is longer than the max_chunk_size.
+    text: the text to chunk
+    file_path: path of the text
+    max_chunk_size: The len max of each chunks
+    return a list of dict with file, text, first_char_index,
+    last_char_index as keys.
+    """
     chunks = []
     lines = text.split('#')
     last_pos = 0
@@ -38,7 +47,16 @@ def text_chunker(text: str, file_path: str,
     return chunks
 
 
-def python_code_chunker(text: str, file_path: str, max_chunk_size: int) -> list[dict[str, str | int]]:
+def python_code_chunker(text: str, file_path: str,
+                        max_chunk_size: int) -> list[dict[str, str | int]]:
+    """
+    Chunk a python code on every class and def using ast
+    text: the python code to chunk
+    file_path: path of the file containing the text
+    max_chunk_size: number max of char in a chunk
+    return a list of dict containing file, text, first_char_index,
+    last_char_index as keys.
+    """
     chunks = []
     try:
         tree = ast.parse(text)
@@ -62,24 +80,39 @@ def python_code_chunker(text: str, file_path: str, max_chunk_size: int) -> list[
 
 
 def files_name_loader() -> dict[str, list[str]]:
+    """
+    Charge all the .md and .py file in the 'data/raw/vllm-0.10.1/' folder.
+    Return a dict with py and md as keys, and the corresponding list
+    of files path for each keys
+    """
     repo = 'data/raw/vllm-0.10.1/'
     files_dict = {}
     py_files = glob.glob(repo + '/**/*.py', recursive=True)
     files_dict.update({'py': py_files})
-    txt_file =  glob.glob(repo + '/**/*.txt', recursive=True)
-    files_dict.update({'txt': txt_file})
+    # txt_file =  glob.glob(repo + '/**/*.txt', recursive=True)
+    # files_dict.update({'txt': txt_file})
     md_file = glob.glob(repo + '/**/*.md', recursive=True)
     files_dict.update({'md': md_file})
     return files_dict
 
 
 def read_file(file: str) -> str:
+    """
+    Read a file and return it's text
+    file: path of the file to read
+    """
     with open(file) as f:
         text = f.read()
     return text
 
 
 def get_all_chunk(max_chunk_size) -> list[dict[str, str | int]]:
+    """
+    Get all the chunks for py and md files
+    max_chunk_size: size max of a chunk
+    return a list of dict with file, text, first_char_index, last_char_index
+    as keys
+    """
     chunks = []
     files = files_name_loader()
     for file in tqdm(files['py'], desc="Indexing .py files"):
@@ -88,4 +121,4 @@ def get_all_chunk(max_chunk_size) -> list[dict[str, str | int]]:
         chunks.extend(text_chunker(read_file(file), file, max_chunk_size))
     return chunks
 
-# print(get_all_chunk())
+# print(get_all_chunk(2000))

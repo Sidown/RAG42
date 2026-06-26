@@ -2,7 +2,7 @@ from student.cli import RAG
 import fire
 
 
-def main():
+def main() -> None:
     fire.Fire(RAG)
 
 
