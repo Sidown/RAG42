@@ -1,7 +1,5 @@
 import json
-from student.files_loader import get_all_chunk
-from student.indexation import index_chunks
-from student.search_files import search_match
+from student.chunker import get_all_chunk
 import os
 import bm25s
 
@@ -36,4 +34,28 @@ def load_index(path: str):
     return bm25_index, json_data
 
 
+def corpus_constructor(chunks: list[dict[str, str | int]]) -> list[str]:
+    corpus = []
+    for chunk in chunks:
+        corpus.append(chunk['text'])
+    return corpus
+
+
+def index_chunks(chunks: list[dict[str, str | int]]) -> bm25s.BM25:
+    corpus = corpus_constructor(chunks)
+    corpus_tokens = bm25s.tokenize(corpus)
+    retriever = bm25s.BM25()
+    retriever.index(corpus_tokens)
+    return retriever
 # print(load_index("data/processed/bm25_index"))
+
+
+def search_match(query: str, retriever: bm25s.BM25,
+                 chunks: list[dict[str, str | int]],
+                 nb_of_top_match: int):
+    matched_chunk = []
+    query_tokens = bm25s.tokenize(query)
+    results, _ = retriever.retrieve(query_tokens, k=nb_of_top_match)
+    for r in results[0]:
+        matched_chunk.append(chunks[r])
+    return matched_chunk

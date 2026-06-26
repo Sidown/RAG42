@@ -1,7 +1,7 @@
-from student.files_loader import get_all_chunk
-from student.indexation import index_chunks
+from student.chunker import get_all_chunk
+from student.index_manager import index_chunks
 from student.index_manager import save_index, load_index
-from student.search_files import search_match
+from student.index_manager import search_match
 import os
 import json
 from student.data_models import MinimalAnswer, MinimalSource, StudentSearchResults, RagDataset, MinimalSearchResults, StudentSearchResultsAndAnswer
