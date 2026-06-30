@@ -84,7 +84,7 @@ class RAG:
         os.makedirs(save_directory, exist_ok=True)
         retriever, chunks = load_index(self.index_path)
         mini_search_list = []
-        with open(dataset_path, 'r') as f:
+        with open(dataset_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         for d in data["rag_questions"]:
             mini_source = []
@@ -100,7 +100,7 @@ class RAG:
         a = stud_search_res.model_dump(mode='json')
         filename = os.path.basename(dataset_path)
         output_path = os.path.join(save_directory, filename)
-        with open(output_path, 'w') as f:
+        with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(a, f, indent=2)
         print(f"Saved to {output_path}")
 
@@ -137,7 +137,7 @@ class RAG:
         os.makedirs(save_directory, exist_ok=True)
         chatbot = self._get_chatbot()
 
-        with open(student_search_results_path, 'r') as f:
+        with open(student_search_results_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         search_results_and_answer = StudentSearchResultsAndAnswer(
             search_results = [],
@@ -154,7 +154,7 @@ class RAG:
             informations = ""
 
             for source in d["retrieved_sources"]:
-                with open(source["file_path"]) as f:
+                with open(source["file_path"], encoding='utf-8') as f:
                     info_read = f.read()
                 informations += info_read[
                     source["first_character_index"]
@@ -180,30 +180,39 @@ class RAG:
         dumped = search_results_and_answer.model_dump(mode='json')
         filename = os.path.basename(student_search_results_path)
         output_path = os.path.join(save_directory, filename)
-        with open(output_path, 'w') as f:
+        with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(dumped, f, indent=2)
         print(f"Saved to {output_path}")
 
     def evaluate(self, student_answer_path: str, dataset_path: str) -> None:
         
         count = 0
-        with open(student_answer_path) as f:
+        with open(student_answer_path, encoding='utf-8') as f:
             stud_answers = json.load(f)
-        with open(dataset_path) as f:
+        with open(dataset_path, encoding='utf-8') as f:
             true_answers = json.load(f)
-        for truth in true_answers["rag_questions"]:
-            stud_result = next(
-                (r for r in stud_answers["search_results"]
-                if r["question_id"] == truth["question_id"]),
-                None
-            )
-            if stud_result is None:
-                continue
-            for correct_source in truth["sources"]:
-                for retrieved_source in stud_result["retrieved_sources"]:
-                    if self._has_overlap(retrieved_source, correct_source):
-                        count += 1
-                        break
-        
-        print(count)
+
+
+        for k in [1, 3, 5, 10]:
+            found = 0
+            total_sources = 0
+            for truth in true_answers["rag_questions"]:
+                stud_result = next(
+                    (r for r in stud_answers["search_results"]
+                    if r["question_id"] == truth["question_id"]),
+                    None
+                )
+                if stud_result is None:
+                    continue
+
+                retrieved_k = stud_result["retrieved_sources"][:k]
+
+                for correct_source in truth["sources"]:
+                    total_sources += 1
+                    for retrieved_source in retrieved_k:
+                        if self._has_overlap(retrieved_source, correct_source):
+                            found += 1
+                            break
+            recall = found / total_sources if total_sources else 0
+            print(f"Recall@{k}: {int(recall * 100)}%")
         

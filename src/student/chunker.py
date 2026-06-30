@@ -21,10 +21,14 @@ def text_chunker(text: str, file_path: str,
     for line in lines:
         if line == '':
             continue
+
+        first_char_of_line = text.find(line, last_pos)
+        
         if len(line) > max_chunk_size:
             line_sliced = textwrap.wrap(line, max_chunk_size)
+            offset = first_char_of_line
             for s in line_sliced:
-                first_char = text.find(s, last_pos)
+                first_char = offset
                 last_char = first_char + len(s)
                 chunks.append({
                     'file': file_path,
@@ -32,9 +36,11 @@ def text_chunker(text: str, file_path: str,
                     'first_char_index': first_char,
                     'last_char_index': last_char
                 })
-                last_pos = last_char
+                offset = last_char
+            last_pos = offset
+
         else:
-            first_char = text.find(line, last_pos)
+            first_char = first_char_of_line
             last_char = first_char + len(line)
             chunks.append({
                 'file': file_path,
@@ -87,12 +93,10 @@ def files_name_loader() -> dict[str, list[str]]:
     """
     repo = 'data/raw/vllm-0.10.1/'
     files_dict = {}
-    py_files = glob.glob(repo + '/**/*.py', recursive=True)
-    files_dict.update({'py': py_files})
-    # txt_file =  glob.glob(repo + '/**/*.txt', recursive=True)
-    # files_dict.update({'txt': txt_file})
-    md_file = glob.glob(repo + '/**/*.md', recursive=True)
-    files_dict.update({'md': md_file})
+    py_files = glob.glob(repo + '**/*.py', recursive=True)
+    files_dict.update({'py': [f.replace('\\', '/') for f in py_files]})
+    md_file = glob.glob(repo + '**/*.md', recursive=True)
+    files_dict.update({'md': [f.replace('\\', '/') for f in md_file]})
     return files_dict
 
 
@@ -101,7 +105,7 @@ def read_file(file: str) -> str:
     Read a file and return it's text
     file: path of the file to read
     """
-    with open(file) as f:
+    with open(file, encoding='utf-8') as f:
         text = f.read()
     return text
 
