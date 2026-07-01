@@ -1,13 +1,14 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from typing import Any
 
 
 class QwenChatbot:
-    def __init__(self, model_name="Qwen/Qwen3-0.6B"):
+    def __init__(self, model_name: str = "Qwen/Qwen3-0.6B"):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForCausalLM.from_pretrained(model_name)
-        self.history = []
+        self.history: list[dict[str, str]] = []
 
-    def generate_response(self, user_input):
+    def generate_response(self, user_input: str) -> Any:
         messages = self.history + [{"role": "user", "content": user_input}]
 
         text = self.tokenizer.apply_chat_template(

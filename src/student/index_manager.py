@@ -1,10 +1,11 @@
 import json
 import os
 import bm25s
+from chunker import Chunk
 
 
 def save_index(path: str, retriever: bm25s.BM25,
-               chunks: list[dict[str, str | int]]) -> bool:
+               chunks: list[Chunk]) -> bool:
     """
     Save the BM25 index as a json file
     path: path of the json file
@@ -31,23 +32,20 @@ def save_index(path: str, retriever: bm25s.BM25,
 # save_index("data/processed/bm25_index", retriever, chunks)
 
 
-def load_index(path: str) -> list[bm25s.BM25, dict]:
+def load_index(path: str) -> tuple[bm25s.BM25, dict]:
     """
     Load bm25 index and the json file then return them
     path: path of the file
     """
-    try:
-        chunks_path = os.path.join(os.path.dirname(path),
-                                   "chunks.json")
-        with open(chunks_path, 'r') as f:
-            json_data = json.load(f)
-        bm25_index = bm25s.BM25.load(path)
-        return bm25_index, json_data
-    except Exception:
-        pass
+    chunks_path = os.path.join(os.path.dirname(path),
+                               "chunks.json")
+    with open(chunks_path, 'r') as f:
+        json_data: dict = json.load(f)
+    bm25_index = bm25s.BM25.load(path)
+    return bm25_index, json_data
 
 
-def corpus_constructor(chunks: list[dict[str, str | int]]) -> list[str]:
+def corpus_constructor(chunks: list[Chunk]) -> list[str | int]:
     """
     Construct corpus and return it
     """
@@ -57,7 +55,7 @@ def corpus_constructor(chunks: list[dict[str, str | int]]) -> list[str]:
     return corpus
 
 
-def index_chunks(chunks: list[dict[str, str | int]]) -> bm25s.BM25:
+def index_chunks(chunks: list[Chunk]) -> bm25s.BM25:
     """
     Index the chunks using BM25
     """
@@ -70,8 +68,8 @@ def index_chunks(chunks: list[dict[str, str | int]]) -> bm25s.BM25:
 
 
 def search_match(query: str, retriever: bm25s.BM25,
-                 chunks: list[dict[str, str | int]],
-                 nb_of_top_match: int) -> list[dict[str, str | int]]:
+                 chunks: dict[str, str | int],
+                 nb_of_top_match: int) -> list[Chunk]:
     matched_chunk = []
     query_tokens = bm25s.tokenize(query)
     results, _ = retriever.retrieve(query_tokens, k=nb_of_top_match)

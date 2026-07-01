@@ -18,20 +18,20 @@ class RAG:
     """
     index_path = "data/processed/bm25_index"
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Init for the chatbot
         """
-        self._chatbot = None
+        self._chatbot = QwenChatbot()
 
-    def _get_chatbot(self):
-        """
-        Change the chatbot from none to QwenChatBot and return it.
-        """
-        if self._chatbot is None:
-            print("Loading LLM")
-            self._chatbot = QwenChatbot()
-        return self._chatbot
+    # def _get_chatbot(self) -> QwenChatbot:
+    #     """
+    #     Change the chatbot from none to QwenChatBot and return it.
+    #     """
+    #     if self._chatbot is None:
+    #         print("Loading LLM")
+    #         self._chatbot = QwenChatbot()
+    #     return self._chatbot
 
     def _has_overlap(self, retrieved: dict, truth: dict) -> bool:
         """
@@ -141,7 +141,7 @@ class RAG:
             print("Please give a query.")
             return
 
-        chatbot = self._get_chatbot()
+        chatbot = self._chatbot
         documentation = ""
         retriever, chunks = load_index(self.index_path)
         chunks_found = search_match(query, retriever, chunks, k)
@@ -167,7 +167,7 @@ class RAG:
         """
         try:
             os.makedirs(save_directory, exist_ok=True)
-            chatbot = self._get_chatbot()
+            chatbot = self._chatbot
 
             with open(student_search_results_path, 'r',
                       encoding='utf-8') as f:
