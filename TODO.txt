@@ -1,0 +1,7 @@
+Error case
+Lint
+Docstring
+Make functions clearer if needed
+Makefile
+Readme
+Check if answers are correct

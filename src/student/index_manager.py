@@ -1,5 +1,4 @@
 import json
-from student.chunker import get_all_chunk
 import os
 import bm25s
 
@@ -32,17 +31,20 @@ def save_index(path: str, retriever: bm25s.BM25,
 # save_index("data/processed/bm25_index", retriever, chunks)
 
 
-def load_index(path: str):
+def load_index(path: str) -> list[bm25s.BM25, dict]:
     """
     Load bm25 index and the json file then return them
     path: path of the file
     """
-    chunks_path = os.path.join(os.path.dirname(path),
-                               "chunks.json")
-    with open(chunks_path, 'r') as f:
-        json_data = json.load(f)
-    bm25_index = bm25s.BM25.load(path)
-    return bm25_index, json_data
+    try:
+        chunks_path = os.path.join(os.path.dirname(path),
+                                   "chunks.json")
+        with open(chunks_path, 'r') as f:
+            json_data = json.load(f)
+        bm25_index = bm25s.BM25.load(path)
+        return bm25_index, json_data
+    except Exception:
+        pass
 
 
 def corpus_constructor(chunks: list[dict[str, str | int]]) -> list[str]:
@@ -69,7 +71,7 @@ def index_chunks(chunks: list[dict[str, str | int]]) -> bm25s.BM25:
 
 def search_match(query: str, retriever: bm25s.BM25,
                  chunks: list[dict[str, str | int]],
-                 nb_of_top_match: int):
+                 nb_of_top_match: int) -> list[dict[str, str | int]]:
     matched_chunk = []
     query_tokens = bm25s.tokenize(query)
     results, _ = retriever.retrieve(query_tokens, k=nb_of_top_match)

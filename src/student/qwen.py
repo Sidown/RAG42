@@ -1,5 +1,6 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+
 class QwenChatbot:
     def __init__(self, model_name="Qwen/Qwen3-0.6B"):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -17,8 +18,11 @@ class QwenChatbot:
         )
 
         inputs = self.tokenizer(text, return_tensors="pt")
-        response_ids = self.model.generate(**inputs, max_new_tokens=50)[0][len(inputs.input_ids[0]):].tolist()
-        response = self.tokenizer.decode(response_ids, skip_special_tokens=True)
+        response_ids = self.model.generate(
+            **inputs,
+            max_new_tokens=50)[0][len(inputs.input_ids[0]):].tolist()
+        response = self.tokenizer.decode(
+            response_ids, skip_special_tokens=True)
 
         # Update history
         # self.history.append({"role": "user", "content": user_input})
@@ -30,7 +34,8 @@ class QwenChatbot:
 # if __name__ == "__main__":
 #     chatbot = QwenChatbot()
 
-#     # First input (without /think or /no_think tags, thinking mode is enabled by default)
+#     # First input (without /think or /no_think tags,
+#                    thinking mode is enabled by default)
 #     user_input_1 = "How many r's in strawberries?"
 #     print(f"User: {user_input_1}")
 #     response_1 = chatbot.generate_response(user_input_1)
@@ -41,7 +46,7 @@ class QwenChatbot:
 #     user_input_2 = "Then, how many r's in blueberries? /no_think"
 #     print(f"User: {user_input_2}")
 #     response_2 = chatbot.generate_response(user_input_2)
-#     print(f"Bot: {response_2}") 
+#     print(f"Bot: {response_2}")
 #     print("----------------------")
 
 #     # Third input with /think
