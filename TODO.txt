@@ -1,5 +1,5 @@
 Error case
-Lint
+#Lint
 Docstring
 Make functions clearer if needed
 Makefile

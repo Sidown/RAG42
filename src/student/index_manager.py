@@ -1,7 +1,7 @@
 import json
 import os
 import bm25s
-from chunker import Chunk
+from student.chunker import Chunk
 
 
 def save_index(path: str, retriever: bm25s.BM25,

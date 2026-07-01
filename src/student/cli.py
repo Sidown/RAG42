@@ -229,6 +229,13 @@ class RAG:
                   " {save_directory}")
 
     def evaluate(self, student_answer_path: str, dataset_path: str) -> None:
+        """
+        Evaluates the student's sources by comparing them with the real
+        sources and returns a score for the first 1, 3, 5 and 10
+        sources found.
+        student_answer_path: path to the student file
+        dataset_path: path to the comparison file
+        """
         try:
             with open(student_answer_path, encoding='utf-8') as f:
                 stud_answers = json.load(f)

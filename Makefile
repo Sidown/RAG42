@@ -3,6 +3,9 @@
 install:
 	uv sync
 
+run: install
+	uv run python -m student index
+
 lint: install
 	flake8 src
 	mypy src --follow-imports=skip --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
