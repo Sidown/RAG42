@@ -28,11 +28,12 @@ class RAG:
         self._cache: dict[str, MinimalAnswer] = {}
 
     def _save_cache(self) -> None:
+        os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
         with open(self.cache_path, 'w') as f:
             json.dump(self._cache, f, indent=2)
 
 
-    def _check_cache(self, query: str) -> None | dict[str, str | int]:
+    def _check_cache(self, query: str) -> None | str:
         for key in self._cache:
             if key == query:
                 return self._cache[key]["answer"]
@@ -177,7 +178,13 @@ class RAG:
         documentation = ""
         retriever, chunks = load_index(self.index_path)
         chunks_found = search_match(query, retriever, chunks, k)
-        to_cache.retrieved_sources = chunks_found
+        for chunk in chunks_found:
+            mini_source = MinimalSource(
+                file_path=chunk['file'],
+                first_character_index=chunk['first_char_index'],
+                last_character_index=chunk['last_char_index']
+            )
+            to_cache.retrieved_sources.append(mini_source)
 
         for chunk in chunks_found:
             documentation += chunk['text']
@@ -264,6 +271,8 @@ class RAG:
                     self._cache.update({d["question"]: jsoned_cache})
                 search_results_and_answer.search_results.append(mini_answer)
 
+                self._save_cache()
+
             dumped = search_results_and_answer.model_dump(mode='json')
             filename = os.path.basename(student_search_results_path)
             output_path = os.path.join(save_directory, filename)
@@ -271,8 +280,6 @@ class RAG:
             with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(dumped, f, indent=2)
             print(f"Saved to {output_path}")
-
-            self._save_cache()
 
         except Exception:
             print("Answer dataset failed, please check your arguments:")

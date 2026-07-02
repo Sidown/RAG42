@@ -1,5 +1,6 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from typing import Any
+import torch
 
 
 class QwenChatbot:
@@ -11,7 +12,11 @@ class QwenChatbot:
         Initialise the class with Qwen3-0.6B as the model
         """
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(model_name)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            torch_dtype=torch.float32
+            )
+        self.model.eval()
         self.history: list[dict[str, str]] = []
 
     def generate_response(self, user_input: str) -> Any:
@@ -27,9 +32,10 @@ class QwenChatbot:
             enable_thinking=False
         )
         inputs = self.tokenizer(text, return_tensors="pt")
-        response_ids = self.model.generate(
-            **inputs,
-            max_new_tokens=50)[0][len(inputs.input_ids[0]):].tolist()
+        with torch.no_grad():
+            response_ids = self.model.generate(
+                **inputs,
+                max_new_tokens=50)[0][len(inputs.input_ids[0]):].tolist()
         response = self.tokenizer.decode(
             response_ids, skip_special_tokens=True)
 
