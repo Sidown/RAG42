@@ -13,6 +13,19 @@ lint: install
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type d -name .mypy_cache -exec rm -rf {} +
+	rm -rf data/output/search_results
+	rm -rf data/output/search_results_and_answer
+	rm -rf data/processed
+
+clean_cache:
+	rm -rf data/output/cache.json
+
+fclean: clean_cache
+	find . -type d -name __pycache__ -exec rm -rf {} +
+	find . -type d -name .mypy_cache -exec rm -rf {} +
 	rm -rf data/output
 	rm -rf data/processed
 	rm -rf .venv
+
+clean_cache:
+	rm -rf data/output/cache.json

@@ -9,6 +9,7 @@ from student.data_models import StudentSearchResults, MinimalSearchResults
 from student.data_models import StudentSearchResultsAndAnswer
 from student.qwen import QwenChatbot
 from tqdm import tqdm
+from typing import Optional
 
 
 class RAG:
@@ -17,21 +18,41 @@ class RAG:
     and evaluate as command.
     """
     index_path = "data/processed/bm25_index"
+    cache_path = "data/output/cache.json"
 
     def __init__(self) -> None:
         """
         Init for the chatbot
         """
-        self._chatbot = QwenChatbot()
+        self._chatbot: Optional[QwenChatbot] = None
+        self._cache: dict[str, list[dict[str, str | int]]] = {}
 
-    # def _get_chatbot(self) -> QwenChatbot:
-    #     """
-    #     Change the chatbot from none to QwenChatBot and return it.
-    #     """
-    #     if self._chatbot is None:
-    #         print("Loading LLM")
-    #         self._chatbot = QwenChatbot()
-    #     return self._chatbot
+    def _save_cache(self) -> None:
+        with open(self.cache_path, 'w') as f:
+            json.dump(self._cache, f, indent=2)
+
+
+    def _check_cache(self, query: str) -> None | dict[str, str | int]:
+        for key in self._cache:
+            if key == query:
+                return self._cache[key]
+        return None
+    
+    def _load_cache(self) -> None:
+        try:
+            with open(self.cache_path) as f:
+                self._cache = json.load(f)
+        except Exception:
+            pass
+
+    def _get_chatbot(self) -> QwenChatbot:
+        """
+        Change the chatbot from none to QwenChatBot and return it.
+        """
+        if self._chatbot is None:
+            print("Loading LLM")
+            self._chatbot = QwenChatbot()
+        return self._chatbot
 
     def _has_overlap(self, retrieved: dict, truth: dict) -> bool:
         """
@@ -141,7 +162,13 @@ class RAG:
             print("Please give a query.")
             return
 
-        chatbot = self._chatbot
+        self._load_cache()
+        answer_in_cache = self._check_cache(query)
+        if answer_in_cache:
+            print(answer_in_cache)
+            return
+        
+        chatbot = self._get_chatbot()
         documentation = ""
         retriever, chunks = load_index(self.index_path)
         chunks_found = search_match(query, retriever, chunks, k)
@@ -157,6 +184,8 @@ class RAG:
 
         response = chatbot.generate_response(llm_query)
         print(response)
+        self._cache.update({query: response})
+        self._save_cache()
 
     def answer_dataset(self, student_search_results_path: str,
                        save_directory: str) -> None:
@@ -166,8 +195,14 @@ class RAG:
         save_directory: path where to save the answers
         """
         try:
+            self._load_cache()
+            # answer_in_cache = self._check_cache(query)
+            # if answer_in_cache:
+            #     print(answer_in_cache)
+            #     return
+
             os.makedirs(save_directory, exist_ok=True)
-            chatbot = self._chatbot
+            chatbot = self._get_chatbot()
 
             with open(student_search_results_path, 'r',
                       encoding='utf-8') as f:
@@ -179,6 +214,8 @@ class RAG:
 
             for d in tqdm(data["search_results"],
                           desc="Loading answers for queries..."):
+                answer_in_cache = self._check_cache(d["question"])
+
                 mini_answer = MinimalAnswer(
                     question_id=d["question_id"],
                     question=d["question"],
@@ -209,8 +246,11 @@ class RAG:
                              "comprehensible answer. "
                              f"Query: {d['question']} "
                              f"Information: {informations}")
-
-                response = chatbot.generate_response(llm_query)
+                if answer_in_cache:
+                    response = answer_in_cache
+                else:
+                    response = chatbot.generate_response(llm_query)
+                    self._cache.update({d["question"]: response})
                 mini_answer.answer = response
                 search_results_and_answer.search_results.append(mini_answer)
 
@@ -221,6 +261,9 @@ class RAG:
             with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(dumped, f, indent=2)
             print(f"Saved to {output_path}")
+            with open(self.cache_path, 'w') as f:
+                json.dump(self._cache, f, indent=2)
+
 
         except Exception:
             print("Answer dataset failed, please check your arguments:")
