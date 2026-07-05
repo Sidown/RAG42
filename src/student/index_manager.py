@@ -2,6 +2,7 @@ import json
 import os
 import bm25s
 from student.chunker import Chunk
+from student.semantic_embeddings import SemanticIndexing
 
 
 def save_index(path: str, retriever: bm25s.BM25,
@@ -76,3 +77,22 @@ def search_match(query: str, retriever: bm25s.BM25,
     for r in results[0]:
         matched_chunk.append(chunks[r])
     return matched_chunk
+
+
+def rrf_search(query: str, retriever: bm25s.BM25, 
+               semantic: SemanticIndexing,
+               chunks: list[Chunk], k: int) -> list[Chunk]:
+    candidate_k = k * 3
+    scores: dict[int, float] = {}
+
+    query_tokens = bm25s.tokenize(query)
+    bm25_results, _ = retriever.retrieve(query_tokens, k=candidate_k)
+    for rang, chunk_idx in enumerate(bm25_results[0]):
+        scores[chunk_idx] = scores.get(chunk_idx, 0) + 1 / (60 + rang)
+
+    semantic_results = semantic.search(query, candidate_k)
+    for rang, chunk_idx in enumerate(semantic_results):
+        scores[chunk_idx] = scores.get(chunk_idx, 0) + 1 / (60 + rang)
+
+    sorted_indices = sorted(scores, key=lambda x: scores[x], reverse=True)
+    return [chunks[i] for i in sorted_indices[:k]]

@@ -1,7 +1,7 @@
 from student.chunker import get_all_chunk
 from student.index_manager import index_chunks
 from student.index_manager import save_index, load_index
-from student.index_manager import search_match
+from student.index_manager import search_match, rrf_search
 import os
 import json
 from student.data_models import MinimalAnswer, MinimalSource
@@ -10,6 +10,7 @@ from student.data_models import StudentSearchResultsAndAnswer
 from student.qwen import QwenChatbot
 from tqdm import tqdm
 from typing import Optional
+from student.semantic_embeddings import SemanticIndexing
 
 
 class RAG:
@@ -25,7 +26,7 @@ class RAG:
         Init for the chatbot
         """
         self._chatbot: Optional[QwenChatbot] = None
-        self._cache: dict[str, MinimalAnswer] = {}
+        self._cache: dict[str, dict] = {}
 
     def _save_cache(self) -> None:
         os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
@@ -80,13 +81,23 @@ class RAG:
         Index files
         max_chunk_size: number of char in a chunk
         """
-        print("Indexing in progress...")
-        chunks = get_all_chunk(max_chunk_size)
-        retriever = index_chunks(chunks)
-        save_index(self.index_path, retriever, chunks)
-        print("Indexing done !")
+        try:
+            print("(BM25) Indexing in progress...")
+            chunks = get_all_chunk(max_chunk_size)
+            retriever = index_chunks(chunks)
+            save_index(self.index_path, retriever, chunks)
+            print("(BM25)Indexing done !")
 
-    def search(self, query: str, k: int = 5) -> None:
+            print("(Semantic) Indexing in progress...")
+            semantic = SemanticIndexing()
+            semantic.build(chunks)
+            print("(Semantic) Indexing done !")
+        
+        except Exception as e:
+            print(f"Error: {e}")
+
+
+    def search(self, query: str, k: int = 5, hybrid: bool = False) -> None:
         """
         Search chunk match for a query
         query: user query
@@ -96,16 +107,24 @@ class RAG:
             print("Please give a query.")
             return
 
-        retriever, chunks = load_index(self.index_path)
-        chunks_found = search_match(query, retriever, chunks, k)
+        try:
+            retriever, chunks = load_index(self.index_path)
+            if hybrid:
+                semantic = SemanticIndexing()
+                chunks_found = rrf_search(query, retriever, semantic, chunks, k)
+            else:
+                chunks_found = search_match(query, retriever, chunks, k)
 
-        for i, chunk in enumerate(chunks_found):
-            print(f"Result {i}:")
-            print(f"File path: {chunk['file']}")
-            print(f"Content:\n{chunk['text']}")
+            for i, chunk in enumerate(chunks_found):
+                print(f"Result {i}:")
+                print(f"File path: {chunk['file']}")
+                print(f"Content:\n{chunk['text']}")
+        
+        except Exception as e:
+            print(f"Error: {e}")
 
     def search_dataset(self, dataset_path: str, k: int,
-                       save_directory: str) -> None:
+                       save_directory: str, hybrid: bool = False) -> None:
         """
         Search matching chunks for a dataset and save it in a file
         dataset_path: path to the dataset containing queries
@@ -119,10 +138,15 @@ class RAG:
         try:
             with open(dataset_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
+            semantic = SemanticIndexing() if hybrid else NotImplemented
 
             for d in data["rag_questions"]:
                 mini_source = []
-                m = search_match(d["question"], retriever, chunks, k)
+                if hybrid:
+                    m = rrf_search(d["question"], retriever, semantic, 
+                                   chunks, k)
+                else:
+                    m = search_match(d["question"], retriever, chunks, k)
 
                 for ans in m:
                     mini_source.append(MinimalSource(
@@ -148,10 +172,10 @@ class RAG:
 
             print(f"Saved to {output_path}")
 
-        except Exception:
-            print("Please check your arguments:")
-            print("-> uv run python -m student"
-                  " search_dataset {dataset_path} {k} {save_directory}")
+        except Exception as e:
+            print(f"Error: {e}")
+            import traceback
+            traceback.print_exc()
 
     def answer(self, query: str, k: int = 5) -> None:
         """
@@ -162,45 +186,52 @@ class RAG:
         if query == '':
             print("Please give a query.")
             return
-
-        self._load_cache()
-        answer_in_cache = self._check_cache(query)
-        if answer_in_cache:
-            print(answer_in_cache)
+        if k == 0:
+            print("k must be greater than 0.")
             return
-        to_cache = MinimalAnswer(
-            question_id="",
-            question=query,
-            retrieved_sources=[],
-            answer=""
-        )
-        chatbot = self._get_chatbot()
-        documentation = ""
-        retriever, chunks = load_index(self.index_path)
-        chunks_found = search_match(query, retriever, chunks, k)
-        for chunk in chunks_found:
-            mini_source = MinimalSource(
-                file_path=chunk['file'],
-                first_character_index=chunk['first_char_index'],
-                last_character_index=chunk['last_char_index']
+
+        try:
+            self._load_cache()
+            answer_in_cache = self._check_cache(query)
+            if answer_in_cache:
+                print(answer_in_cache)
+                return
+            to_cache = MinimalAnswer(
+                question_id="",
+                question=query,
+                retrieved_sources=[],
+                answer=""
             )
-            to_cache.retrieved_sources.append(mini_source)
+            chatbot = self._get_chatbot()
+            documentation = ""
+            retriever, chunks = load_index(self.index_path)
+            chunks_found = search_match(query, retriever, chunks, k)
+            for chunk in chunks_found:
+                mini_source = MinimalSource(
+                    file_path=chunk['file'],
+                    first_character_index=chunk['first_char_index'],
+                    last_character_index=chunk['last_char_index']
+                )
+                to_cache.retrieved_sources.append(mini_source)
 
-        for chunk in chunks_found:
-            documentation += chunk['text']
+            for chunk in chunks_found:
+                documentation += chunk['text']
 
-        llm_query = ("Your role: you are an assistant responsible for helping"
-                     " the user answer questions. To help you, you will be"
-                     " provided with information. Use these informations to"
-                     " formulate a comprehensible answer. "
-                     f"QUERY: {query} INFORMATION: {documentation}")
+            llm_query = ("Your role: you are an assistant responsible for helping"
+                        " the user answer questions. To help you, you will be"
+                        " provided with information. Use these informations to"
+                        " formulate a comprehensible answer. "
+                        f"QUERY: {query} INFORMATION: {documentation}")
 
-        response = chatbot.generate_response(llm_query)
-        print(response)
-        to_cache.answer = response
-        jsoned = to_cache.model_dump(mode='json')
-        self._cache.update({query: jsoned})
-        self._save_cache()
+            response = chatbot.generate_response(llm_query)
+            print(response)
+            to_cache.answer = response
+            jsoned = to_cache.model_dump(mode='json')
+            self._cache.update({query: jsoned})
+            self._save_cache()
+
+        except Exception as e:
+            print(f"Error: {e}")
 
     def answer_dataset(self, student_search_results_path: str,
                        save_directory: str) -> None:
@@ -281,11 +312,8 @@ class RAG:
                 json.dump(dumped, f, indent=2)
             print(f"Saved to {output_path}")
 
-        except Exception:
-            print("Answer dataset failed, please check your arguments:")
-            print("-> uv run python -m student answer_dataset"
-                  " {student_search_results_path}"
-                  " {save_directory}")
+        except Exception as e:
+            print(f"Error: {e}")
 
     def evaluate(self, student_answer_path: str, dataset_path: str) -> None:
         """
@@ -327,7 +355,5 @@ class RAG:
                 recall = found / total_sources if total_sources else 0
                 print(f"Recall@{k}: {int(recall * 100)}%")
 
-        except Exception:
-            print("Evaluation failed, please check your arguments:")
-            print("-> uv run python -m student"
-                  " evaluate {student_answer_path} {dataset_path}")
+        except Exception as e:
+            print(f"Error: {e}")

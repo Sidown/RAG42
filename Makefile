@@ -1,10 +1,13 @@
-.PHONY: install run debug lint clean
+.PHONY: install run debug lint clean clean_cache fclean
 
 install:
 	uv sync
 
 run: install
-	uv run python -m student index
+	uv run python -m student --help
+
+debug: install
+	uv run python -m student --help
 
 lint: install
 	flake8 src
@@ -26,6 +29,3 @@ fclean: clean_cache
 	rm -rf data/output
 	rm -rf data/processed
 	rm -rf .venv
-
-clean_cache:
-	rm -rf data/output/cache.json
