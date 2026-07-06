@@ -1,5 +1,5 @@
 from sentence_transformers import SentenceTransformer, util
-from student.chunker import Chunk
+from src.chunker import Chunk
 import numpy as np
 import torch
 from typing import Any
@@ -9,6 +9,7 @@ class SemanticIndexing():
     """
     Semantic indexing class
     """
+    INDEX_PATH = "./data/processed/semantic_index.npy"
 
     def __init__(self) -> None:
         """
@@ -34,7 +35,7 @@ class SemanticIndexing():
         """
         search the top k result for the user query and return a list of index.
         """
-        index = np.load('./data/processed/semantic_index.npy')
+        index = np.load(self.INDEX_PATH)
         query_embeddings = self.model.encode(query)
         scores = util.cos_sim(query_embeddings, index)
         idx = torch.argsort(scores[0], descending=True).numpy()

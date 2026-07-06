@@ -35,7 +35,7 @@ class QwenChatbot:
         with torch.no_grad():
             response_ids = self.model.generate(
                 **inputs,
-                max_new_tokens=50)[0][len(inputs.input_ids[0]):].tolist()
+                max_new_tokens=200)[0][len(inputs.input_ids[0]):].tolist()
         response = self.tokenizer.decode(
             response_ids, skip_special_tokens=True)
 

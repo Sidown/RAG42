@@ -1,4 +1,4 @@
-from student.cli import RAG
+from src.cli import RAG
 import fire
 
 

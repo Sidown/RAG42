@@ -4,10 +4,10 @@ install:
 	uv sync
 
 run: install
-	uv run python -m student --help
+	uv run python -m src --help
 
 debug: install
-	uv run python -m student --help
+	uv run python -m src --help
 
 lint: install
 	flake8 src

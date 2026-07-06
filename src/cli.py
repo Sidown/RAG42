@@ -1,16 +1,16 @@
-from student.chunker import get_all_chunk
-from student.index_manager import index_chunks
-from student.index_manager import save_index, load_index
-from student.index_manager import search_match, rrf_search
+from src.chunker import get_all_chunk
+from src.index_manager import build_bm25_index
+from src.index_manager import save_index, load_index
+from src.index_manager import bm25_search , rrf_search
 import os
 import json
-from student.data_models import MinimalAnswer, MinimalSource
-from student.data_models import StudentSearchResults, MinimalSearchResults
-from student.data_models import StudentSearchResultsAndAnswer
-from student.qwen import QwenChatbot
+from src.data_models import MinimalAnswer, MinimalSource
+from src.data_models import StudentSearchResults, MinimalSearchResults
+from src.data_models import StudentSearchResultsAndAnswer
+from src.qwen import QwenChatbot
 from tqdm import tqdm
 from typing import Optional
-from student.semantic_embeddings import SemanticIndexing
+from src.semantic_embeddings import SemanticIndexing
 
 
 class RAG:
@@ -18,8 +18,8 @@ class RAG:
     CLI class with index, search, search_dataset, answer, answer_dataset
     and evaluate as command.
     """
-    index_path = "data/processed/bm25_index"
-    cache_path = "data/output/cache.json"
+    INDEX_PATH = "data/processed/bm25_index"
+    CACHE_PATH = "data/output/cache.json"
 
     def __init__(self) -> None:
         """
@@ -32,8 +32,8 @@ class RAG:
         """
         Save the cache in a json file.
         """
-        os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
-        with open(self.cache_path, 'w') as f:
+        os.makedirs(os.path.dirname(self.CACHE_PATH), exist_ok=True)
+        with open(self.CACHE_PATH, 'w') as f:
             json.dump(self._cache, f, indent=2)
 
     def _check_cache(self, query: str) -> None | str:
@@ -51,7 +51,7 @@ class RAG:
         Load the cache.json file as the cache.
         """
         try:
-            with open(self.cache_path) as f:
+            with open(self.CACHE_PATH) as f:
                 self._cache = json.load(f)
         except Exception:
             pass
@@ -78,10 +78,10 @@ class RAG:
         overlap_end = min(retrieved["last_character_index"],
                           truth["last_character_index"])
         overlap_size = max(0, overlap_end - overlap_start)
-        overlap_percent = overlap_size / (truth["last_character_index"]
+        overlap_ratio = overlap_size / (truth["last_character_index"]
                                           - truth["first_character_index"])
 
-        if overlap_percent >= 0.05:
+        if overlap_ratio >= 0.05:
             return True
         return False
 
@@ -98,8 +98,8 @@ class RAG:
         try:
             print("(BM25) Indexing in progress...")
             chunks = get_all_chunk(max_chunk_size)
-            retriever = index_chunks(chunks)
-            save_index(self.index_path, retriever, chunks)
+            retriever = build_bm25_index(chunks)
+            save_index(self.INDEX_PATH, retriever, chunks)
             print("(BM25)Indexing done !")
 
             if hybrid:
@@ -125,13 +125,13 @@ class RAG:
             return
 
         try:
-            retriever, chunks = load_index(self.index_path)
+            retriever, chunks = load_index(self.INDEX_PATH)
             if hybrid:
                 semantic = SemanticIndexing()
                 chunks_found = rrf_search(
                     query, retriever, semantic, chunks, k)
             else:
-                chunks_found = search_match(query, retriever, chunks, k)
+                chunks_found = bm25_search (query, retriever, chunks, k)
 
             for i, chunk in enumerate(chunks_found):
                 print(f"Result {i}:")
@@ -150,7 +150,7 @@ class RAG:
         save_directory: path where to save the result
         """
         os.makedirs(save_directory, exist_ok=True)
-        retriever, chunks = load_index(self.index_path)
+        retriever, chunks = load_index(self.INDEX_PATH)
         mini_search_list = []
 
         if k <= 0:
@@ -168,7 +168,7 @@ class RAG:
                     m = rrf_search(d["question"], retriever, semantic,
                                    chunks, k)
                 else:
-                    m = search_match(d["question"], retriever, chunks, k)
+                    m = bm25_search (d["question"], retriever, chunks, k)
 
                 for ans in m:
                     mini_source.append(MinimalSource(
@@ -226,8 +226,9 @@ class RAG:
             )
             chatbot = self._get_chatbot()
             documentation = ""
-            retriever, chunks = load_index(self.index_path)
-            chunks_found = search_match(query, retriever, chunks, k)
+            retriever, chunks = load_index(self.INDEX_PATH)
+            chunks_found = bm25_search (query, retriever, chunks, k) 
+
             for chunk in chunks_found:
                 mini_source = MinimalSource(
                     file_path=chunk['file'],
@@ -235,8 +236,6 @@ class RAG:
                     last_character_index=chunk['last_char_index']
                 )
                 to_cache.retrieved_sources.append(mini_source)
-
-            for chunk in chunks_found:
                 documentation += chunk['text']
 
             llm_query = ("Your role: you are an assistant responsible"
@@ -335,7 +334,8 @@ class RAG:
         except Exception as e:
             print(f"Error: {e}")
 
-    def evaluate(self, student_answer_path: str, dataset_path: str) -> None:
+    def evaluate(self, student_search_results_path: str,
+                 dataset_path: str) -> None:
         """
         Evaluates the student's sources by comparing them with the real
         sources and returns a score for the first 1, 3, 5 and 10
@@ -344,7 +344,7 @@ class RAG:
         dataset_path: path to the comparison file
         """
         try:
-            with open(student_answer_path, encoding='utf-8') as f:
+            with open(student_search_results_path, encoding='utf-8') as f:
                 stud_answers = json.load(f)
             with open(dataset_path, encoding='utf-8') as f:
                 true_answers = json.load(f)

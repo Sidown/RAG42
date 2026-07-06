@@ -1,8 +1,8 @@
 import json
 import os
 import bm25s
-from student.chunker import Chunk
-from student.semantic_embeddings import SemanticIndexing
+from src.chunker import Chunk
+from src.semantic_embeddings import SemanticIndexing
 
 
 def save_index(path: str, retriever: bm25s.BM25,
@@ -49,7 +49,7 @@ def corpus_constructor(chunks: list[Chunk]) -> list[str]:
     return corpus
 
 
-def index_chunks(chunks: list[Chunk]) -> bm25s.BM25:
+def build_bm25_index(chunks: list[Chunk]) -> bm25s.BM25:
     """
     Index the chunks using BM25
     """
@@ -60,7 +60,7 @@ def index_chunks(chunks: list[Chunk]) -> bm25s.BM25:
     return retriever
 
 
-def search_match(query: str, retriever: bm25s.BM25,
+def bm25_search (query: str, retriever: bm25s.BM25,
                  chunks: dict[str, str | int],
                  nb_of_top_match: int) -> list[str | int]:
     """
@@ -71,12 +71,12 @@ def search_match(query: str, retriever: bm25s.BM25,
     chunks: dict of chunk
     nb_of_top_match: number of chunk to return
     """
-    matched_chunk = []
+    results = []
     query_tokens = bm25s.tokenize(query)
     results, _ = retriever.retrieve(query_tokens, k=nb_of_top_match)
-    for r in results[0]:
-        matched_chunk.append(chunks[r])
-    return matched_chunk
+    for chunk_idx in results[0]:
+        results.append(chunks[chunk_idx])
+    return results
 
 
 def rrf_search(query: str, retriever: bm25s.BM25,
@@ -97,12 +97,14 @@ def rrf_search(query: str, retriever: bm25s.BM25,
 
     query_tokens = bm25s.tokenize(query)
     bm25_results, _ = retriever.retrieve(query_tokens, k=candidate_k)
-    for rang, chunk_idx in enumerate(bm25_results[0]):
-        scores[chunk_idx] = scores.get(chunk_idx, 0) + 1 / (60 + rang)
+    
+    # RRF formula: score = 1 / (k + rank), k=60 prevents top results from dominating
+    for rank, chunk_idx in enumerate(bm25_results[0]):
+        scores[chunk_idx] = scores.get(chunk_idx, 0) + 1 / (60 + rank)
 
     semantic_results = semantic.search(query, candidate_k)
-    for rang, chunk_idx in enumerate(semantic_results):
-        scores[chunk_idx] = scores.get(chunk_idx, 0) + 1 / (60 + rang)
+    for rank, chunk_idx in enumerate(semantic_results):
+        scores[chunk_idx] = scores.get(chunk_idx, 0) + 1 / (60 + rank)
 
     sorted_indices = sorted(scores, key=lambda x: scores[x], reverse=True)
     return [chunks[i] for i in sorted_indices[:k]]
