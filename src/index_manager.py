@@ -8,10 +8,15 @@ from src.semantic_embeddings import SemanticIndexing
 def save_index(path: str, retriever: bm25s.BM25,
                chunks: list[Chunk]) -> bool:
     """
-    Save the BM25 index as a json file
-    path: path of the json file
-    retriever: BM25 index
-    chunks: dict containing all the chunks
+    Save the BM25 index and chunks to disk.
+
+    Args:
+        path: Directory path for the BM25 index.
+        retriever: The fitted BM25 retriever object.
+        chunks: List of all chunks to save alongside the index.
+
+    Returns:
+        True on success, False on error.
     """
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -28,8 +33,13 @@ def save_index(path: str, retriever: bm25s.BM25,
 
 def load_index(path: str) -> tuple[bm25s.BM25, dict]:
     """
-    Load bm25 index and the json file then return them
-    path: path of the file
+    Load the BM25 index and chunks from disk.
+
+    Args:
+        path: Directory path of the saved BM25 index.
+
+    Returns:
+        A tuple of (BM25 retriever, list of chunks).
     """
     chunks_path = os.path.join(os.path.dirname(path),
                                "chunks.json")
@@ -41,7 +51,13 @@ def load_index(path: str) -> tuple[bm25s.BM25, dict]:
 
 def corpus_constructor(chunks: list[Chunk]) -> list[str]:
     """
-    Construct corpus and return it
+    Extract text content from chunks to build a searchable corpus.
+
+    Args:
+        chunks: List of Chunk dicts.
+
+    Returns:
+        A list of text strings, one per chunk.
     """
     corpus = []
     for chunk in chunks:
@@ -51,7 +67,13 @@ def corpus_constructor(chunks: list[Chunk]) -> list[str]:
 
 def build_bm25_index(chunks: list[Chunk]) -> bm25s.BM25:
     """
-    Index the chunks using BM25
+    Build and return a BM25 index from a list of chunks.
+
+    Args:
+        chunks: List of Chunk dicts to index.
+
+    Returns:
+        A fitted BM25 retriever object.
     """
     corpus = corpus_constructor(chunks)
     corpus_tokens = bm25s.tokenize(corpus)
@@ -60,45 +82,56 @@ def build_bm25_index(chunks: list[Chunk]) -> bm25s.BM25:
     return retriever
 
 
-def bm25_search (query: str, retriever: bm25s.BM25,
-                 chunks: dict[str, str | int],
-                 nb_of_top_match: int) -> list[str | int]:
+def bm25_search(query: str, retriever: bm25s.BM25,
+                 chunks: list[Chunk],
+                 nb_of_top_match: int) -> list[Chunk]:
     """
-    Use bm25 to search match for the query and return a list
-    of top matched chunk.
-    query: User query
-    retriever: BM25 retriever
-    chunks: dict of chunk
-    nb_of_top_match: number of chunk to return
+    Search the BM25 index and return the top-k most relevant chunks.
+
+    Args:
+        query: The user query string.
+        retriever: The fitted BM25 retriever.
+        chunks: The list of all indexed chunks.
+        nb_of_top_match: Number of top results to return.
+
+    Returns:
+        A list of the top-k matching chunks.
     """
-    results = []
+    matched_chunks = []
     query_tokens = bm25s.tokenize(query)
     results, _ = retriever.retrieve(query_tokens, k=nb_of_top_match)
     for chunk_idx in results[0]:
-        results.append(chunks[chunk_idx])
-    return results
+        matched_chunks.append(chunks[chunk_idx])
+    return matched_chunks
 
 
 def rrf_search(query: str, retriever: bm25s.BM25,
                semantic: SemanticIndexing,
                chunks: list[Chunk], k: int) -> list[Chunk]:
     """
-    Use BM25 and semantic indexation to do an hybrid search of matched chunks,
-    and use Reciprocal Rank Fusion (RRF) algorithm to sort them.
-    Return a list of k matched chunks.
-    query: User query
-    retriever: BM25 retriever
-    semantic: SemanticIndexing class
-    chunks: list of Chunk class
-    k: number of result to return
+    Hybrid search combining BM25 and semantic retrieval via RRF.
+
+    Retrieves candidate_k=k*3 results from each system, then fuses
+    their rankings using Reciprocal Rank Fusion (RRF, k=60).
+
+    Args:
+        query: The user query string.
+        retriever: The fitted BM25 retriever.
+        semantic: A SemanticIndexing instance with a loaded index.
+        chunks: The list of all indexed chunks.
+        k: Number of final results to return.
+
+    Returns:
+        A list of the top-k chunks ranked by RRF score.
     """
     candidate_k = k * 3
     scores: dict[int, float] = {}
 
     query_tokens = bm25s.tokenize(query)
     bm25_results, _ = retriever.retrieve(query_tokens, k=candidate_k)
-    
-    # RRF formula: score = 1 / (k + rank), k=60 prevents top results from dominating
+
+    # RRF formula: score = 1 / (k + rank),
+    # k=60 prevents top results from dominating
     for rank, chunk_idx in enumerate(bm25_results[0]):
         scores[chunk_idx] = scores.get(chunk_idx, 0) + 1 / (60 + rank)
 

@@ -19,7 +19,10 @@ class SemanticIndexing():
 
     def build(self, chunks: list[Chunk]) -> None:
         """
-        Build the index for the semantic search and save it in a npy file.
+        Encode all chunks and save the embedding matrix to disk.
+
+        Args:
+            chunks: List of Chunk dicts to encode and index.
         """
         chunk_text_list = []
         for chunk in chunks:
@@ -31,12 +34,20 @@ class SemanticIndexing():
             )
         np.save('./data/processed/semantic_index', chunk_embeddings)
 
-    def search(self, query: str, k: int) -> list[Any]:
+    def search(self, query: str, k: int) -> list[int]:
         """
-        search the top k result for the user query and return a list of index.
+        Find the top-k most semantically similar chunks for a query.
+
+        Args:
+            query: The user query string.
+            k: Number of top results to return.
+
+        Returns:
+            A list of integer indices into the original chunks list,
+            sorted by descending cosine similarity.
         """
         index = np.load(self.INDEX_PATH)
         query_embeddings = self.model.encode(query)
         scores = util.cos_sim(query_embeddings, index)
-        idx = torch.argsort(scores[0], descending=True).numpy()
-        return idx[:k]
+        sorted_i = torch.argsort(scores[0], descending=True).numpy()
+        return sorted_i[:k].tolist()

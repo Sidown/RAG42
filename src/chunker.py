@@ -15,13 +15,16 @@ class Chunk(TypedDict):
 def text_chunker(text: str, file_path: str,
                  max_chunk_size: int) -> list[Chunk]:
     """
-    Chunk a text with a split on '#' and a wrap if one of the chunks
-    is longer than the max_chunk_size.
-    text: the text to chunk
-    file_path: path of the text
-    max_chunk_size: The len max of each chunks
-    return a list of dict with file, text, first_char_index,
-    last_char_index as keys.
+    Split a markdown text into chunks by '#' sections.
+
+    Args:
+        text: The full text content to chunk.
+        file_path: Path of the source file.
+        max_chunk_size: Maximum number of characters per chunk.
+
+    Returns:
+        A list of Chunk dicts with file, text, first_char_index,
+        last_char_index keys.
     """
     chunks: list[Chunk] = []
     lines = text.split('#')
@@ -68,12 +71,19 @@ def text_chunker(text: str, file_path: str,
 def python_code_chunker(text: str, file_path: str,
                         max_chunk_size: int) -> list[Chunk]:
     """
-    Chunk a python code on every class and def using ast
-    text: the python code to chunk
-    file_path: path of the file containing the text
-    max_chunk_size: number max of char in a chunk
-    return a list of dict containing file, text, first_char_index,
-    last_char_index as keys.
+    Split a Python file into chunks by class and function definitions.
+
+    Uses the ast module to identify FunctionDef and ClassDef nodes
+    and extract their character positions in the original file.
+
+    Args:
+        text: The full Python source code.
+        file_path: Path of the source file.
+        max_chunk_size: Maximum number of characters per chunk.
+
+    Returns:
+        A list of Chunk dicts with file, text, first_char_index,
+        last_char_index keys.
     """
     chunks: list[Chunk] = []
     try:
@@ -85,28 +95,29 @@ def python_code_chunker(text: str, file_path: str,
                and node.end_lineno is not None):
                 first_char = sum(len(lines[i]) + 1
                                  for i in range(node.lineno - 1))
-
                 last_char = (sum(len(lines[i]) + 1
                              for i in range(node.end_lineno - 1))
                              + len(lines[node.end_lineno - 1]))
-
                 chunks.append({
                     'file': file_path,
-                    'text': '\n'.join(lines[node.lineno - 1:node.end_lineno]),
+                    'text': '\n'.join(
+                        lines[node.lineno - 1:node.end_lineno]),
                     'first_char_index': first_char,
-                    'last_char_index': last_char
+                    'last_char_index': min(last_char,
+                                           first_char + max_chunk_size)
                 })
         return chunks
-
     except Exception:
         return []
 
 
 def files_name_loader() -> dict[str, list[str]]:
     """
-    Charge all the .md and .py file in the 'data/raw/vllm-0.10.1/' folder.
-    Return a dict with py and md as keys, and the corresponding list
-    of files path for each keys
+    Load all .py and .md file paths from the vLLM repository.
+
+    Returns:
+        A dict with 'py' and 'md' keys, each mapping to a list
+        of file paths as strings.
     """
     repo = 'data/raw/vllm-0.10.1/'
     files_dict = {}
@@ -123,8 +134,13 @@ def files_name_loader() -> dict[str, list[str]]:
 
 def read_file(file: str) -> str:
     """
-    Read a file and return it's text
-    file: path of the file to read
+    Read a file and return its text content.
+
+    Args:
+        file: Path of the file to read.
+
+    Returns:
+        The file content as a string, or empty string on error.
     """
     try:
         with open(file, encoding='utf-8') as f:
@@ -136,10 +152,14 @@ def read_file(file: str) -> str:
 
 def get_all_chunk(max_chunk_size: int) -> list[Chunk]:
     """
-    Get all the chunks for py and md files
-    max_chunk_size: size max of a chunk
-    return a list of dict with file, text, first_char_index, last_char_index
-    as keys
+    Chunk all .py and .md files from the vLLM repository.
+
+    Args:
+        max_chunk_size: Maximum number of characters per chunk.
+
+    Returns:
+        A list of Chunk dicts with file, text, first_char_index,
+        last_char_index keys.
     """
     chunks: list[Chunk] = []
     files = files_name_loader()

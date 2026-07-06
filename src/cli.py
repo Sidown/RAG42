@@ -1,7 +1,7 @@
 from src.chunker import get_all_chunk
 from src.index_manager import build_bm25_index
 from src.index_manager import save_index, load_index
-from src.index_manager import bm25_search , rrf_search
+from src.index_manager import bm25_search, rrf_search
 import os
 import json
 from src.data_models import MinimalAnswer, MinimalSource
@@ -15,8 +15,10 @@ from src.semantic_embeddings import SemanticIndexing
 
 class RAG:
     """
-    CLI class with index, search, search_dataset, answer, answer_dataset
-    and evaluate as command.
+    CLI class exposing the RAG pipeline commands via Python Fire.
+
+    Commands: index, search, search_dataset, answer,
+    answer_dataset, evaluate.
     """
     INDEX_PATH = "data/processed/bm25_index"
     CACHE_PATH = "data/output/cache.json"
@@ -41,14 +43,16 @@ class RAG:
         Check if a query is in the cache and return its answer if its in
         the cache of None if not.
         """
-        for key in self._cache:
-            if key == query:
-                return self._cache[key]["answer"]
-        return None
+        result = self._cache.get(query)
+        if result is None:
+            return None
+        answer = result.get("answer")
+        return str(answer) if answer is not None else None
 
     def _load_cache(self) -> None:
         """
-        Load the cache.json file as the cache.
+        Load the cache from disk into memory.
+        Silently ignores missing file.
         """
         try:
             with open(self.CACHE_PATH) as f:
@@ -67,8 +71,21 @@ class RAG:
 
     def _has_overlap(self, retrieved: dict, truth: dict) -> bool:
         """
-        Check if the text of the retrieved information and the true information
-        overlap
+        Check if a retrieved source overlaps sufficiently with a
+        ground truth source.
+
+        A source is considered found if the overlap covers at
+        least 5% of
+        the ground truth character range (IoU >= 0.05).
+
+        Args:
+            retrieved: Dict with file_path, first_character_index,
+                    last_character_index from retrieval results.
+            truth: Dict with file_path, first_character_index,
+                last_character_index from ground truth.
+
+        Returns:
+            True if overlap ratio >= 0.05 and same file, False otherwise.
         """
         if retrieved["file_path"] != truth["file_path"]:
             return False
@@ -87,8 +104,13 @@ class RAG:
 
     def index(self, max_chunk_size: int = 2000, hybrid: bool = False) -> None:
         """
-        Index files
-        max_chunk_size: number of char in a chunk
+        Ingest the vLLM repository and build the BM25
+        (and optionally semantic) index.
+
+        Args:
+            max_chunk_size: Maximum characters per chunk.
+            Must be between 1 and 2000.
+            hybrid: If True, also builds the semantic embedding index.
         """
 
         if max_chunk_size <= 0 or max_chunk_size > 2000:
@@ -113,9 +135,12 @@ class RAG:
 
     def search(self, query: str, k: int = 5, hybrid: bool = False) -> None:
         """
-        Search chunk match for a query
-        query: user query
-        k: number max of matching chunks to retrieve
+        Search for the top-k most relevant chunks for a single query.
+
+        Args:
+            query: The user query string.
+            k: Number of results to retrieve.
+            hybrid: If True, uses RRF hybrid retrieval (BM25 + semantic).
         """
         if query == '':
             print("Please give a query.")
@@ -131,7 +156,7 @@ class RAG:
                 chunks_found = rrf_search(
                     query, retriever, semantic, chunks, k)
             else:
-                chunks_found = bm25_search (query, retriever, chunks, k)
+                chunks_found = bm25_search(query, retriever, chunks, k)
 
             for i, chunk in enumerate(chunks_found):
                 print(f"Result {i}:")
@@ -144,10 +169,14 @@ class RAG:
     def search_dataset(self, dataset_path: str, k: int,
                        save_directory: str, hybrid: bool = False) -> None:
         """
-        Search matching chunks for a dataset and save it in a file
-        dataset_path: path to the dataset containing queries
-        k: number of chunks to retrieve for each query
-        save_directory: path where to save the result
+        Run BM25 search over a full dataset and save results as JSON.
+
+        Args:
+            dataset_path: Path to the JSON dataset file
+            (UnansweredQuestions format).
+            k: Number of chunks to retrieve per question.
+            save_directory: Directory where the output JSON file is saved.
+            hybrid: If True, uses RRF hybrid retrieval (BM25 + semantic).
         """
         os.makedirs(save_directory, exist_ok=True)
         retriever, chunks = load_index(self.INDEX_PATH)
@@ -168,7 +197,7 @@ class RAG:
                     m = rrf_search(d["question"], retriever, semantic,
                                    chunks, k)
                 else:
-                    m = bm25_search (d["question"], retriever, chunks, k)
+                    m = bm25_search(d["question"], retriever, chunks, k)
 
                 for ans in m:
                     mini_source.append(MinimalSource(
@@ -201,9 +230,14 @@ class RAG:
 
     def answer(self, query: str, k: int = 5) -> None:
         """
-        Use QWEN and chunks to answer a single query of the user
-        query: user query
-        k: number of chunks to retrieve for the query
+        Answer a single query using retrieved context and Qwen3-0.6B.
+
+        Checks the cache first. If not cached, retrieves relevant chunks,
+        builds a prompt, generates an answer, and caches the result.
+
+        Args:
+            query: The user query string.
+            k: Number of chunks to retrieve for context.
         """
         if query == '':
             print("Please give a query.")
@@ -227,7 +261,7 @@ class RAG:
             chatbot = self._get_chatbot()
             documentation = ""
             retriever, chunks = load_index(self.INDEX_PATH)
-            chunks_found = bm25_search (query, retriever, chunks, k) 
+            chunks_found = bm25_search(query, retriever, chunks, k)
 
             for chunk in chunks_found:
                 mini_source = MinimalSource(
@@ -258,9 +292,15 @@ class RAG:
     def answer_dataset(self, student_search_results_path: str,
                        save_directory: str) -> None:
         """
-        Use QWEN and chunks to answer questions from a dataset
-        student_search_results_path: Path to the search results
-        save_directory: path where to save the answers
+        Generate answers for all questions in a search results file.
+
+        Reads a StudentSearchResults JSON file, generates an answer for each
+        question using the retrieved sources as context, and saves the output
+        as a StudentSearchResultsAndAnswer JSON file.
+
+        Args:
+            student_search_results_path: Path to the search results JSON file.
+            save_directory: Directory where the output JSON file is saved.
         """
         try:
             self._load_cache()
@@ -337,11 +377,15 @@ class RAG:
     def evaluate(self, student_search_results_path: str,
                  dataset_path: str) -> None:
         """
-        Evaluates the student's sources by comparing them with the real
-        sources and returns a score for the first 1, 3, 5 and 10
-        sources found.
-        student_answer_path: path to the student file
-        dataset_path: path to the comparison file
+        Evaluate retrieval quality by computing recall@k against ground truth.
+
+        Reports recall at k=1, 3, 5, and 10. A source is considered found
+        if the retrieved chunk overlaps the correct source by at least 5%.
+
+        Args:
+            student_search_results_path: Path to the student
+                search results JSON.
+            dataset_path: Path to the ground truth AnsweredQuestions JSON.
         """
         try:
             with open(student_search_results_path, encoding='utf-8') as f:

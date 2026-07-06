@@ -9,7 +9,11 @@ class QwenChatbot:
     """
     def __init__(self, model_name: str = "Qwen/Qwen3-0.6B"):
         """
-        Initialise the class with Qwen3-0.6B as the model
+        Load the tokenizer and model from HuggingFace.
+
+        Args:
+            model_name: HuggingFace model identifier.
+                Defaults to Qwen/Qwen3-0.6B.
         """
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForCausalLM.from_pretrained(
@@ -21,7 +25,13 @@ class QwenChatbot:
 
     def generate_response(self, user_input: str) -> Any:
         """
-        Take an user input and return an answer.
+        Generate a response for a given user input.
+
+        Args:
+            user_input: The prompt string to send to the model.
+
+        Returns:
+            The generated response as a string.
         """
         messages = self.history + [{"role": "user", "content": user_input}]
 
@@ -33,7 +43,7 @@ class QwenChatbot:
         )
         inputs = self.tokenizer(text, return_tensors="pt")
         with torch.no_grad():
-            response_ids = self.model.generate(
+            response_ids = self.model.generate( # type: ignore[misc]
                 **inputs,
                 max_new_tokens=200)[0][len(inputs.input_ids[0]):].tolist()
         response = self.tokenizer.decode(
