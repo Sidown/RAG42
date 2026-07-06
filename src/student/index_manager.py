@@ -26,13 +26,6 @@ def save_index(path: str, retriever: bm25s.BM25,
         return False
 
 
-# querie = "VLLM"
-# chunks = get_all_chunk()
-# retriever = index_chunks(chunks)
-# matched = search_match(querie, retriever, chunks, 1)
-# save_index("data/processed/bm25_index", retriever, chunks)
-
-
 def load_index(path: str) -> tuple[bm25s.BM25, dict]:
     """
     Load bm25 index and the json file then return them
@@ -46,7 +39,7 @@ def load_index(path: str) -> tuple[bm25s.BM25, dict]:
     return bm25_index, json_data
 
 
-def corpus_constructor(chunks: list[Chunk]) -> list[str | int]:
+def corpus_constructor(chunks: list[Chunk]) -> list[str]:
     """
     Construct corpus and return it
     """
@@ -65,12 +58,19 @@ def index_chunks(chunks: list[Chunk]) -> bm25s.BM25:
     retriever = bm25s.BM25()
     retriever.index(corpus_tokens)
     return retriever
-# print(load_index("data/processed/bm25_index"))
 
 
 def search_match(query: str, retriever: bm25s.BM25,
                  chunks: dict[str, str | int],
-                 nb_of_top_match: int) -> list[Chunk]:
+                 nb_of_top_match: int) -> list[str | int]:
+    """
+    Use bm25 to search match for the query and return a list
+    of top matched chunk.
+    query: User query
+    retriever: BM25 retriever
+    chunks: dict of chunk
+    nb_of_top_match: number of chunk to return
+    """
     matched_chunk = []
     query_tokens = bm25s.tokenize(query)
     results, _ = retriever.retrieve(query_tokens, k=nb_of_top_match)
@@ -79,9 +79,19 @@ def search_match(query: str, retriever: bm25s.BM25,
     return matched_chunk
 
 
-def rrf_search(query: str, retriever: bm25s.BM25, 
+def rrf_search(query: str, retriever: bm25s.BM25,
                semantic: SemanticIndexing,
                chunks: list[Chunk], k: int) -> list[Chunk]:
+    """
+    Use BM25 and semantic indexation to do an hybrid search of matched chunks,
+    and use Reciprocal Rank Fusion (RRF) algorithm to sort them.
+    Return a list of k matched chunks.
+    query: User query
+    retriever: BM25 retriever
+    semantic: SemanticIndexing class
+    chunks: list of Chunk class
+    k: number of result to return
+    """
     candidate_k = k * 3
     scores: dict[int, float] = {}
 

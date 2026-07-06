@@ -29,18 +29,27 @@ class RAG:
         self._cache: dict[str, dict] = {}
 
     def _save_cache(self) -> None:
+        """
+        Save the cache in a json file.
+        """
         os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
         with open(self.cache_path, 'w') as f:
             json.dump(self._cache, f, indent=2)
 
-
     def _check_cache(self, query: str) -> None | str:
+        """
+        Check if a query is in the cache and return its answer if its in
+        the cache of None if not.
+        """
         for key in self._cache:
             if key == query:
                 return self._cache[key]["answer"]
         return None
-    
+
     def _load_cache(self) -> None:
+        """
+        Load the cache.json file as the cache.
+        """
         try:
             with open(self.cache_path) as f:
                 self._cache = json.load(f)
@@ -76,11 +85,16 @@ class RAG:
             return True
         return False
 
-    def index(self, max_chunk_size: int = 2000) -> None:
+    def index(self, max_chunk_size: int = 2000, hybrid: bool = False) -> None:
         """
         Index files
         max_chunk_size: number of char in a chunk
         """
+
+        if max_chunk_size <= 0 or max_chunk_size > 2000:
+            print("max chunk size must be superior to 0 and maximum 2000.")
+            return
+
         try:
             print("(BM25) Indexing in progress...")
             chunks = get_all_chunk(max_chunk_size)
@@ -88,14 +102,14 @@ class RAG:
             save_index(self.index_path, retriever, chunks)
             print("(BM25)Indexing done !")
 
-            print("(Semantic) Indexing in progress...")
-            semantic = SemanticIndexing()
-            semantic.build(chunks)
-            print("(Semantic) Indexing done !")
-        
+            if hybrid:
+                print("(Semantic) Indexing in progress...")
+                semantic = SemanticIndexing()
+                semantic.build(chunks)
+                print("(Semantic) Indexing done !")
+
         except Exception as e:
             print(f"Error: {e}")
-
 
     def search(self, query: str, k: int = 5, hybrid: bool = False) -> None:
         """
@@ -106,12 +120,16 @@ class RAG:
         if query == '':
             print("Please give a query.")
             return
+        if k <= 0:
+            print("k must be greater than 0.")
+            return
 
         try:
             retriever, chunks = load_index(self.index_path)
             if hybrid:
                 semantic = SemanticIndexing()
-                chunks_found = rrf_search(query, retriever, semantic, chunks, k)
+                chunks_found = rrf_search(
+                    query, retriever, semantic, chunks, k)
             else:
                 chunks_found = search_match(query, retriever, chunks, k)
 
@@ -119,7 +137,7 @@ class RAG:
                 print(f"Result {i}:")
                 print(f"File path: {chunk['file']}")
                 print(f"Content:\n{chunk['text']}")
-        
+
         except Exception as e:
             print(f"Error: {e}")
 
@@ -135,6 +153,10 @@ class RAG:
         retriever, chunks = load_index(self.index_path)
         mini_search_list = []
 
+        if k <= 0:
+            print("k must be greater than 0.")
+            return
+
         try:
             with open(dataset_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -143,7 +165,7 @@ class RAG:
             for d in data["rag_questions"]:
                 mini_source = []
                 if hybrid:
-                    m = rrf_search(d["question"], retriever, semantic, 
+                    m = rrf_search(d["question"], retriever, semantic,
                                    chunks, k)
                 else:
                     m = search_match(d["question"], retriever, chunks, k)
@@ -186,7 +208,7 @@ class RAG:
         if query == '':
             print("Please give a query.")
             return
-        if k == 0:
+        if k <= 0:
             print("k must be greater than 0.")
             return
 
@@ -217,11 +239,12 @@ class RAG:
             for chunk in chunks_found:
                 documentation += chunk['text']
 
-            llm_query = ("Your role: you are an assistant responsible for helping"
-                        " the user answer questions. To help you, you will be"
-                        " provided with information. Use these informations to"
-                        " formulate a comprehensible answer. "
-                        f"QUERY: {query} INFORMATION: {documentation}")
+            llm_query = ("Your role: you are an assistant responsible"
+                         "for helping the user answer questions. "
+                         "To help you, you will be provided with "
+                         "information. Use these informations to"
+                         " formulate a comprehensible answer. "
+                         f"QUERY: {query} INFORMATION: {documentation}")
 
             response = chatbot.generate_response(llm_query)
             print(response)
@@ -242,10 +265,6 @@ class RAG:
         """
         try:
             self._load_cache()
-            # answer_in_cache = self._check_cache(query)
-            # if answer_in_cache:
-            #     print(answer_in_cache)
-            #     return
 
             os.makedirs(save_directory, exist_ok=True)
             chatbot = self._get_chatbot()
@@ -292,6 +311,7 @@ class RAG:
                              "comprehensible answer. "
                              f"Query: {d['question']} "
                              f"Information: {informations}")
+
                 if answer_in_cache:
                     response = answer_in_cache
                     mini_answer.answer = response
@@ -304,12 +324,12 @@ class RAG:
 
                 self._save_cache()
 
-            dumped = search_results_and_answer.model_dump(mode='json')
+            to_dump = search_results_and_answer.model_dump(mode='json')
             filename = os.path.basename(student_search_results_path)
             output_path = os.path.join(save_directory, filename)
 
             with open(output_path, 'w', encoding='utf-8') as f:
-                json.dump(dumped, f, indent=2)
+                json.dump(to_dump, f, indent=2)
             print(f"Saved to {output_path}")
 
         except Exception as e:
