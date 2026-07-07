@@ -3,6 +3,36 @@ import os
 import bm25s
 from src.chunker import Chunk
 from src.semantic_embeddings import SemanticIndexing
+import re
+
+
+def _split_identifier(token: str) -> str:
+    """
+    Insert spaces at snake_case and camelCase boundaries so a
+    sub-word becomes matchable on its own by BM25.
+    """
+    s = token.replace('_', ' ')
+    s = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', s)
+    s = re.sub(r'(?<=[A-Z])(?=[A-Z][a-z])', ' ', s)
+    return s
+
+
+def expand_identifiers(text: str) -> str:
+    """
+    Append space-split versions of snake_case/camelCase identifiers
+    to a text, so BM25 can also match on their sub-words, not only
+    on the identifier verbatim.
+    """
+    tokens = re.findall(r'\w+', text)
+    extra = []
+    for tok in tokens:
+        if '_' in tok or re.search(r'[a-z][A-Z]', tok):
+            split_version = _split_identifier(tok)
+            if split_version != tok:
+                extra.append(split_version)
+    if extra:
+        return text + ' ' + ' '.join(extra)
+    return text
 
 
 def save_index(path: str, retriever: bm25s.BM25,
@@ -61,7 +91,7 @@ def corpus_constructor(chunks: list[Chunk]) -> list[str]:
     """
     corpus = []
     for chunk in chunks:
-        corpus.append(chunk['text'])
+        corpus.append(expand_identifiers(chunk['text']))
     return corpus
 
 
@@ -98,7 +128,7 @@ def bm25_search(query: str, retriever: bm25s.BM25,
         A list of the top-k matching chunks.
     """
     matched_chunks = []
-    query_tokens = bm25s.tokenize(query)
+    query_tokens = bm25s.tokenize(expand_identifiers(query))
     results, _ = retriever.retrieve(query_tokens, k=nb_of_top_match)
     for chunk_idx in results[0]:
         matched_chunks.append(chunks[chunk_idx])
@@ -125,19 +155,20 @@ def rrf_search(query: str, retriever: bm25s.BM25,
         A list of the top-k chunks ranked by RRF score.
     """
     candidate_k = k * 3
+    bm25_weight = 0.6
     scores: dict[int, float] = {}
 
-    query_tokens = bm25s.tokenize(query)
+    query_tokens = bm25s.tokenize(expand_identifiers(query))
     bm25_results, _ = retriever.retrieve(query_tokens, k=candidate_k)
 
     # RRF formula: score = 1 / (k + rank),
     # k=60 prevents top results from dominating
     for rank, chunk_idx in enumerate(bm25_results[0]):
-        scores[chunk_idx] = scores.get(chunk_idx, 0) + 1 / (60 + rank)
+        scores[chunk_idx] = scores.get(chunk_idx, 0) + bm25_weight * (1 / (60 + rank))
 
     semantic_results = semantic.search(query, candidate_k)
     for rank, chunk_idx in enumerate(semantic_results):
-        scores[chunk_idx] = scores.get(chunk_idx, 0) + 1 / (60 + rank)
+        scores[chunk_idx] = scores.get(chunk_idx, 0) + (1 - bm25_weight) * (1 / (60 + rank))
 
     sorted_indices = sorted(scores, key=lambda x: scores[x], reverse=True)
     return [chunks[i] for i in sorted_indices[:k]]

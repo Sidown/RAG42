@@ -416,10 +416,6 @@ class RAG:
                                                  correct_source):
                                 found += 1
                                 break
-                            if k == 5:
-                                print("====================")
-                                print(f"ONE = {retrieved_source}")
-                                print(f"TWO = {correct_source}")
 
                 recall = found / total_sources if total_sources else 0
                 print(f"Recall@{k}: {int(recall * 100)}%")
