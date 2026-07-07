@@ -160,8 +160,9 @@ class RAG:
 
             for i, chunk in enumerate(chunks_found):
                 print(f"Result {i}:")
-                print(f"File path: {chunk['file']}")
-                print(f"Content:\n{chunk['text']}")
+                print(f"File path: {chunk['file']} "
+                      f"[{chunk['first_char_index']}:"
+                      f"{chunk['last_char_index']}]")
 
         except Exception as e:
             print(f"Error: {e}")

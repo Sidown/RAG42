@@ -86,6 +86,7 @@ def python_code_chunker(text: str, file_path: str,
         last_char_index keys.
     """
     chunks: list[Chunk] = []
+    overlap = 200
     try:
         tree = ast.parse(text)
         lines = text.split('\n')
@@ -103,9 +104,36 @@ def python_code_chunker(text: str, file_path: str,
                     'text': '\n'.join(
                         lines[node.lineno - 1:node.end_lineno]),
                     'first_char_index': first_char,
-                    'last_char_index': min(last_char,
-                                           first_char + max_chunk_size)
+                    'last_char_index': last_char
                 })
+
+        saved: list[Chunk] = []
+        for chunk in chunks:
+            if len(chunk['text']) > max_chunk_size:
+                texts = textwrap.wrap(chunk['text'], max_chunk_size)
+                chunk = {
+                    'file': chunk['file'],
+                    'text': texts[0],
+                    'first_char_index': chunk['first_char_index'],
+                    'last_char_index': chunk['first_char_index'] + len(texts[0])
+                }
+                texts.pop(0)
+
+                offset = 0
+                for t in texts:
+                    print(f"Taille de texts = {len(texts)}")
+                    saved.append({
+                        'file': chunk['file'],
+                        'text': t,
+                        'first_char_index': chunk['last_char_index'] + offset,
+                        'last_char_index': chunk['last_char_index'] + offset + len(t),
+                        })
+                    offset = chunk['last_char_index'] + offset + len(t)
+                    texts.pop(0)
+        
+        for save in saved:
+            chunks.append(save)
+
         return chunks
     except Exception:
         return []

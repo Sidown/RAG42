@@ -5698,5 +5698,37 @@
       }
     ],
     "answer": "To run the **VLM2Vec-Full model** in **embedding mode** using **vLLM**, you must explicitly pass the flag:\n\n```bash\n--runner pooling\n```\n\nThis flag is required to switch the model from text generation"
+  },
+  "How to configure the OpenQI server ?": {
+    "question_id": "",
+    "question": "How to configure the OpenQI server ?",
+    "retrieved_sources": [
+      {
+        "file_path": "data/raw/vllm-0.10.1/benchmarks/auto_tune/README.md",
+        "first_character_index": 2802,
+        "last_character_index": 2894
+      },
+      {
+        "file_path": "data/raw/vllm-0.10.1/benchmarks/auto_tune/README.md",
+        "first_character_index": 3375,
+        "last_character_index": 3472
+      },
+      {
+        "file_path": "data/raw/vllm-0.10.1/docs/deployment/frameworks/triton.md",
+        "first_character_index": 1,
+        "last_character_index": 369
+      },
+      {
+        "file_path": "data/raw/vllm-0.10.1/docs/deployment/integrations/kubeai.md",
+        "first_character_index": 1,
+        "last_character_index": 765
+      },
+      {
+        "file_path": "data/raw/vllm-0.10.1/docs/deployment/frameworks/litellm.md",
+        "first_character_index": 842,
+        "last_character_index": 1122
+      }
+    ],
+    "answer": "To configure the **OpenQI server**, follow these steps based on the environment you're using:\n\n### 1. **Configure the Script**\nEdit the script and set the variables in the `[Configuration]` section. Here are examples for different goals:\n\n- **NVIDIA Triton**: Use the [Triton Inference Server](https://github.com/triton-inference-server) for deploying models.\n- **KubeAI**: Use the [KubeAI installation guide](https://www.kubeai.org/installation/any/) for setting up and configuring the server.\n\n### 2. **Start the vLLM Server**\nOnce the server is configured, you can start the vLLM server with the supported chat completion model. For example:\n\n```bash\nvllm serve qwen/Qwen1.5-0.5B-Chat\n```\n\n### 3. **Call the vLLM Server**\nUse the vLLM server with `litellm"
   }
 }
