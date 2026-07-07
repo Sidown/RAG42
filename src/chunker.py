@@ -108,7 +108,6 @@ def python_code_chunker(text: str, file_path: str,
                     'last_char_index': last_char
                 })
 
-        saved: list[Chunk] = []
         final_chunks: list[Chunk] = []
         previous_line = ''
         for chunk in chunks:
@@ -143,9 +142,6 @@ def python_code_chunker(text: str, file_path: str,
                     })
             else:
                 final_chunks.append(chunk)
-
-        for save in saved:
-            final_chunks.append(save)
 
         return final_chunks
     except Exception:

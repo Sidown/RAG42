@@ -45,8 +45,6 @@ fclean: clean_cache
 	rm -rf data/processed
 	rm -rf .venv
 
-# --- Quick CLI smoke tests ---
-
 search: install
 	uv run python -m src search $(TEST_QUERY) --k $(TEST_K)
 
