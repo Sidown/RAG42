@@ -12,6 +12,70 @@ class Chunk(TypedDict):
     last_char_index: int
 
 
+# def text_chunker(text: str, file_path: str,
+#                   max_chunk_size: int) -> list[Chunk]:
+#     chunks: list[Chunk] = []
+#     lines = text.split('#')
+#     last_pos = 0
+#     try:
+#         for line in lines:
+#             if line == '':
+#                 continue
+
+#             first_char_of_line = text.find(line, last_pos)
+
+#             first_char = first_char_of_line
+#             last_char = first_char + len(line)
+#             chunks.append({
+#                 'file': file_path,
+#                 'text': line,
+#                 'first_char_index': first_char,
+#                 'last_char_index': last_char
+#             })
+#             last_pos = last_char
+        
+#         saved: list[Chunk] = []
+#         final_chunks: list[Chunk] = []
+#         previous_line = ''
+#         for chunk in chunks:
+#             if (chunk['last_char_index'] - chunk['first_char_index']) > max_chunk_size:
+#                 offset = chunk['first_char_index']
+#                 current_text = "" + previous_line
+                
+#                 for line in chunk['text'].split('\n'):
+#                     line_with_newline = line + '\n'
+#                     previous_line = line_with_newline
+#                     if len(current_text) + len(line_with_newline) > max_chunk_size:
+#                         if current_text:
+#                             final_chunks.append({
+#                                 'file': chunk['file'],
+#                                 'text': current_text,
+#                                 'first_char_index': offset,
+#                                 'last_char_index': offset + len(current_text)
+#                             })
+#                             offset += len(current_text)
+#                             current_text = line_with_newline
+#                     else:
+#                         current_text += line_with_newline
+                
+#                 if current_text:
+#                     final_chunks.append({
+#                         'file': chunk['file'],
+#                         'text': current_text,
+#                         'first_char_index': offset,
+#                         'last_char_index': offset + len(current_text)
+#                     })
+#             else:
+#                 final_chunks.append(chunk)
+        
+#         for save in saved:
+#             final_chunks.append(save)
+
+#         return final_chunks
+#     except Exception:
+#         return []
+
+
 def text_chunker(text: str, file_path: str,
                  max_chunk_size: int) -> list[Chunk]:
     """
@@ -28,6 +92,7 @@ def text_chunker(text: str, file_path: str,
     """
     chunks: list[Chunk] = []
     lines = text.split('#')
+        
     last_pos = 0
     try:
         for line in lines:
@@ -86,7 +151,7 @@ def python_code_chunker(text: str, file_path: str,
         last_char_index keys.
     """
     chunks: list[Chunk] = []
-    overlap = 200
+
     try:
         tree = ast.parse(text)
         lines = text.split('\n')
@@ -108,33 +173,43 @@ def python_code_chunker(text: str, file_path: str,
                 })
 
         saved: list[Chunk] = []
+        final_chunks: list[Chunk] = []
+        previous_line = ''
         for chunk in chunks:
-            if len(chunk['text']) > max_chunk_size:
-                texts = textwrap.wrap(chunk['text'], max_chunk_size)
-                chunk = {
-                    'file': chunk['file'],
-                    'text': texts[0],
-                    'first_char_index': chunk['first_char_index'],
-                    'last_char_index': chunk['first_char_index'] + len(texts[0])
-                }
-                texts.pop(0)
-
-                offset = 0
-                for t in texts:
-                    print(f"Taille de texts = {len(texts)}")
-                    saved.append({
+            if (chunk['last_char_index'] - chunk['first_char_index']) > max_chunk_size:
+                offset = chunk['first_char_index']
+                current_text = "" + previous_line
+                
+                for line in chunk['text'].split('\n'):
+                    line_with_newline = line + '\n'
+                    previous_line = line_with_newline
+                    if len(current_text) + len(line_with_newline) > max_chunk_size:
+                        if current_text:
+                            final_chunks.append({
+                                'file': chunk['file'],
+                                'text': current_text,
+                                'first_char_index': offset,
+                                'last_char_index': offset + len(current_text)
+                            })
+                            offset += len(current_text)
+                            current_text = line_with_newline
+                    else:
+                        current_text += line_with_newline
+                
+                if current_text:
+                    final_chunks.append({
                         'file': chunk['file'],
-                        'text': t,
-                        'first_char_index': chunk['last_char_index'] + offset,
-                        'last_char_index': chunk['last_char_index'] + offset + len(t),
-                        })
-                    offset = chunk['last_char_index'] + offset + len(t)
-                    texts.pop(0)
+                        'text': current_text,
+                        'first_char_index': offset,
+                        'last_char_index': offset + len(current_text)
+                    })
+            else:
+                final_chunks.append(chunk)
         
         for save in saved:
-            chunks.append(save)
+            final_chunks.append(save)
 
-        return chunks
+        return final_chunks
     except Exception:
         return []
 
