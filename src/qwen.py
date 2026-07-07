@@ -43,7 +43,7 @@ class QwenChatbot:
         )
         inputs = self.tokenizer(text, return_tensors="pt")
         with torch.no_grad():
-            response_ids = self.model.generate( # type: ignore[misc]
+            response_ids = self.model.generate(
                 **inputs,
                 max_new_tokens=200)[0][len(inputs.input_ids[0]):].tolist()
         response = self.tokenizer.decode(

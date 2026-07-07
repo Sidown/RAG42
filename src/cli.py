@@ -96,7 +96,7 @@ class RAG:
                           truth["last_character_index"])
         overlap_size = max(0, overlap_end - overlap_start)
         overlap_ratio = overlap_size / (truth["last_character_index"]
-                                          - truth["first_character_index"])
+                                        - truth["first_character_index"])
 
         if overlap_ratio >= 0.05:
             return True

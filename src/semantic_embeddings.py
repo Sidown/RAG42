@@ -2,7 +2,6 @@ from sentence_transformers import SentenceTransformer, util
 from src.chunker import Chunk
 import numpy as np
 import torch
-from typing import Any
 
 
 class SemanticIndexing():
@@ -50,4 +49,4 @@ class SemanticIndexing():
         query_embeddings = self.model.encode(query)
         scores = util.cos_sim(query_embeddings, index)
         sorted_i = torch.argsort(scores[0], descending=True).numpy()
-        return sorted_i[:k].tolist()
+        return [int(i) for i in sorted_i[:k]]

@@ -28,7 +28,7 @@ def text_chunker(text: str, file_path: str,
     """
     chunks: list[Chunk] = []
     lines = text.split('#')
-        
+
     last_pos = 0
     try:
         for line in lines:
@@ -112,14 +112,16 @@ def python_code_chunker(text: str, file_path: str,
         final_chunks: list[Chunk] = []
         previous_line = ''
         for chunk in chunks:
-            if (chunk['last_char_index'] - chunk['first_char_index']) > max_chunk_size:
+            if (chunk['last_char_index']
+               - chunk['first_char_index']) > max_chunk_size:
                 offset = chunk['first_char_index']
                 current_text = "" + previous_line
-                
+
                 for line in chunk['text'].split('\n'):
                     line_with_newline = line + '\n'
                     previous_line = line_with_newline
-                    if len(current_text) + len(line_with_newline) > max_chunk_size:
+                    if (len(current_text) + len(line_with_newline)
+                       > max_chunk_size):
                         if current_text:
                             final_chunks.append({
                                 'file': chunk['file'],
@@ -131,7 +133,7 @@ def python_code_chunker(text: str, file_path: str,
                             current_text = line_with_newline
                     else:
                         current_text += line_with_newline
-                
+
                 if current_text:
                     final_chunks.append({
                         'file': chunk['file'],
@@ -141,7 +143,7 @@ def python_code_chunker(text: str, file_path: str,
                     })
             else:
                 final_chunks.append(chunk)
-        
+
         for save in saved:
             final_chunks.append(save)
 

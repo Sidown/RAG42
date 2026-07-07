@@ -61,7 +61,7 @@ def save_index(path: str, retriever: bm25s.BM25,
         return False
 
 
-def load_index(path: str) -> tuple[bm25s.BM25, dict]:
+def load_index(path: str) -> tuple[bm25s.BM25, list[Chunk]]:
     """
     Load the BM25 index and chunks from disk.
 
@@ -74,7 +74,7 @@ def load_index(path: str) -> tuple[bm25s.BM25, dict]:
     chunks_path = os.path.join(os.path.dirname(path),
                                "chunks.json")
     with open(chunks_path, 'r') as f:
-        json_data: dict = json.load(f)
+        json_data: list[Chunk] = json.load(f)
     bm25_index = bm25s.BM25.load(path)
     return bm25_index, json_data
 
@@ -113,8 +113,8 @@ def build_bm25_index(chunks: list[Chunk]) -> bm25s.BM25:
 
 
 def bm25_search(query: str, retriever: bm25s.BM25,
-                 chunks: list[Chunk],
-                 nb_of_top_match: int) -> list[Chunk]:
+                chunks: list[Chunk],
+                nb_of_top_match: int) -> list[Chunk]:
     """
     Search the BM25 index and return the top-k most relevant chunks.
 
@@ -164,11 +164,15 @@ def rrf_search(query: str, retriever: bm25s.BM25,
     # RRF formula: score = 1 / (k + rank),
     # k=60 prevents top results from dominating
     for rank, chunk_idx in enumerate(bm25_results[0]):
-        scores[chunk_idx] = scores.get(chunk_idx, 0) + bm25_weight * (1 / (60 + rank))
+        scores[chunk_idx] = (scores.get(chunk_idx, 0)
+                             + bm25_weight
+                             * (1 / (60 + rank)))
 
     semantic_results = semantic.search(query, candidate_k)
     for rank, chunk_idx in enumerate(semantic_results):
-        scores[chunk_idx] = scores.get(chunk_idx, 0) + (1 - bm25_weight) * (1 / (60 + rank))
+        scores[chunk_idx] = (scores.get(chunk_idx, 0)
+                             + (1 - bm25_weight)
+                             * (1 / (60 + rank)))
 
     sorted_indices = sorted(scores, key=lambda x: scores[x], reverse=True)
     return [chunks[i] for i in sorted_indices[:k]]
