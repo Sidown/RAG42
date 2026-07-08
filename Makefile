@@ -66,17 +66,17 @@ search_dataset_code: install
 		--k $(TEST_K) \
 		--save_directory $(SEARCH_RESULTS_DIR)
 
-evaluate_docs: test-search-dataset-docs
+evaluate_docs: search_dataset_docs
 	uv run python -m src evaluate \
 		--student_search_results_path $(SEARCH_RESULTS_DIR)/dataset_docs_public.json \
 		--dataset_path $(DATASET_DOCS_ANSWERED)
 
-evaluate_code: test-search-dataset-code
+evaluate_code: search_dataset_code
 	uv run python -m src evaluate \
 		--student_search_results_path $(SEARCH_RESULTS_DIR)/dataset_code_public.json \
 		--dataset_path $(DATASET_CODE_ANSWERED)
 
-answer_dataset_docs: test-search-dataset-docs
+answer_dataset_docs: search_dataset_docs
 	uv run python -m src answer_dataset \
 		--student_search_results_path $(SEARCH_RESULTS_DIR)/dataset_docs_public.json \
 		--save_directory $(ANSWER_RESULTS_DIR)
