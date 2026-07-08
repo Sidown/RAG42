@@ -277,7 +277,11 @@ class RAG:
                          "for helping the user answer questions. "
                          "To help you, you will be provided with "
                          "information. Use these informations to"
-                         " formulate a comprehensible answer. "
+                         " formulate a comprehensible answer."
+                         " If you don't have the information in"
+                         " the documentation, or if the query "
+                         "doesn't make sense, your answer must be"
+                         "'I don't have this information'."
                          f"QUERY: {query} INFORMATION: {documentation}")
 
             response = chatbot.generate_response(llm_query)
@@ -343,14 +347,17 @@ class RAG:
                     )
                     mini_answer.retrieved_sources.append(mini_source)
 
-                llm_query = ("Your role: you are an assistant"
-                             "responsible for helping"
-                             " the user answer questions. To help you,"
-                             " you will be provided with information."
-                             "Use these informations to formulate a "
-                             "comprehensible answer. "
-                             f"Query: {d['question']} "
-                             f"Information: {informations}")
+                llm_query = ("Your role: you are an assistant responsible"
+                         "for helping the user answer questions. "
+                         "To help you, you will be provided with "
+                         "information. Use these informations to"
+                         " formulate a comprehensible answer."
+                         " If you don't have the information in"
+                         " the documentation, or if the query "
+                         "doesn't make sense, your answer must be"
+                         "'I don't have this information'."
+                         f"QUERY: {d['question']} "
+                         f"INFORMATION: {informations}")
 
                 if answer_in_cache:
                     response = answer_in_cache

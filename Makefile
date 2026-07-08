@@ -12,7 +12,7 @@ DATASET_CODE_ANSWERED   = data/datasets/AnsweredQuestions/dataset_code_public.js
 SEARCH_RESULTS_DIR = data/output/search_results/UnansweredQuestions
 ANSWER_RESULTS_DIR = data/output/search_results_and_answer/UnansweredQuestions
 
-TEST_QUERY = "How to configure the OpenAI server?"
+TEST_QUERY = "Explain get and set in csharp"
 TEST_K = 5
 
 install:
