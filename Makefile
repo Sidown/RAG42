@@ -45,6 +45,9 @@ fclean: clean_cache
 	rm -rf data/processed
 	rm -rf .venv
 
+index: install
+	uv run python -m src index
+
 search: install
 	uv run python -m src search $(TEST_QUERY) --k $(TEST_K)
 

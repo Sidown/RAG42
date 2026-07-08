@@ -3,8 +3,10 @@ import fire
 
 
 def main() -> None:
-    fire.Fire(RAG)
-
+    try:
+        fire.Fire(RAG)
+    except Exception as e:
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
     main()
